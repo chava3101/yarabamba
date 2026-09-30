@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Yarabamba DD Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<link rel="stylesheet" href="../_system/dd.css">
+<script src="../_system/dd.js"></script>
+<style>
+/* Yarabamba only. Hero, lede, alert pill, lens bar, dial and swipe now come from dd.css / dd.js (v1.3). */
+.findings{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:var(--gap)}
+.finding{display:flex;flex-direction:column;gap:8px}
+.finding .n{font-family:var(--mono);font-size:12px;color:var(--muted-fg)}
+.finding p{font-size:13.5px;color:var(--fg-2);flex-grow:1}
+.finding a,.finding button{align-self:flex-start}
+.peril{display:grid;grid-template-columns:140px 1fr 1fr;gap:12px 16px;align-items:center;font-size:13px}
+.peril .h{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-fg);font-weight:600}
+.peril .v{display:flex;flex-direction:column;gap:5px}
+.peril .v>span{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.dimmed{opacity:.32;transition:opacity var(--dur)}
+.minimap{position:relative;border-radius:var(--r-xl);overflow:hidden;border:1px solid var(--border);background:#1b2530;min-height:300px}
+.minimap svg{display:block;width:100%;height:100%;position:absolute;inset:0}
+.minimap .lot{cursor:pointer;transition:fill-opacity var(--dur)}
+.map-legend{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px 28px;padding:14px 22px 20px}
+.tabs .sw{display:inline-block;width:18px;height:8px;border-radius:3px;margin-right:7px;vertical-align:1px}
+.peril .h button{font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;border-bottom:2px solid transparent;padding-bottom:2px;text-align:left}
+.peril .h button.on{color:var(--fg);border-bottom-color:var(--fg)}
+@media (max-width:640px){.map-legend{grid-template-columns:1fr}}
+.minimap .lot:hover{fill-opacity:.7}
+/* valley map workspace */
+.mapws{display:grid;grid-template-columns:300px minmax(0,1fr);gap:var(--gap-lg);align-items:start}
+.rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px}
+.rail .card{padding:16px 18px}
+.rail .lbl{display:block;margin-bottom:8px}
+.lyr{display:flex;flex-direction:column;gap:2px}
+.lyr button{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:7px 8px;border-radius:var(--r-md);text-align:left;font-size:13.5px;color:var(--fg-2)}
+.lyr button:hover{background:var(--accent)}
+.lyr button.on{background:var(--muted);color:var(--fg);font-weight:600}
+.lyr .sw{width:28px;height:14px;border-radius:4px;border:1px solid var(--border)}
+.lyr .sub{font-size:11.5px;color:var(--muted-fg);font-weight:400}
+.ctl-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;margin-top:10px}
+input[type=range]{width:100%;accent-color:var(--primary)}
+.ramp-leg .bar{height:10px;border-radius:5px;position:relative}
+.ramp-leg .ticks{position:relative;height:30px;font-size:11px;color:var(--muted-fg)}
+.ramp-leg .ticks span{position:absolute;top:4px;transform:translateX(-50%);white-space:nowrap}
+.ramp-leg .ticks span.line::before{content:"";position:absolute;left:50%;top:-8px;height:8px;border-left:1.5px solid var(--fg)}
+.ramp-leg .ticks span.hot{color:var(--fg);font-weight:600}
+.fund-list{display:flex;flex-direction:column;gap:2px;max-height:330px;overflow-y:auto;margin:0 -6px;padding:0 6px}
+.fund-list button{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center;padding:7px 8px;border-radius:var(--r-md);text-align:left;font-size:13px}
+.fund-list button:hover{background:var(--accent)}
+.fund-list button.on{background:var(--muted)}
+.fund-list b{font-weight:600;display:block}
+.fund-list small{color:var(--muted-fg);font-size:11.5px}
+.fund-list .val{font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px}
+.mapbox{position:relative;border-radius:var(--r-xl);overflow:hidden;border:1px solid var(--border);height:calc(100vh - 230px);min-height:560px;background:#1b2530}
+.mapbox .gl{position:absolute;inset:0}
+.mapbox .gl2{position:absolute;inset:0;z-index:2}
+.mapbox .tl{position:absolute;left:14px;top:14px;display:flex;gap:8px;flex-wrap:wrap;right:70px;z-index:4;pointer-events:none}
+.mapbox .chip{padding:6px 10px;border-radius:var(--r-sm);font-size:12px;background:#ffffffee;color:#020617;box-shadow:var(--shadow-xs)}
+.mapbox .chip.dk{background:#020617;color:#fff;font-weight:600;letter-spacing:.06em}
+.mapbox .tools{position:absolute;right:12px;bottom:34px;display:flex;flex-direction:column;gap:6px;z-index:4}
+.mapbox .tools button{min-width:40px;height:34px;padding:0 10px;border-radius:var(--r-md);background:#fff;color:#020617;font-size:12.5px;font-weight:600;box-shadow:0 1px 3px #00000040}
+.mapbox .tools button.on{background:#020617;color:#fff}
+.swipe{position:absolute;top:0;bottom:0;width:0;z-index:3;left:50%}
+.swipe::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 6px #0008}
+.swipe .knob{position:absolute;top:50%;left:-20px;width:40px;height:40px;margin-top:-20px;border-radius:50%;background:#fff;color:#020617;display:flex;align-items:center;justify-content:center;cursor:ew-resize;box-shadow:0 2px 8px #0006;touch-action:none}
+.swipe .side-l,.swipe .side-r{position:absolute;bottom:40px;white-space:nowrap;padding:5px 9px;border-radius:var(--r-sm);font-size:12px;font-weight:600;background:#020617d9;color:#fff}
+.swipe .side-l{right:12px}.swipe .side-r{left:12px}
+.fmk{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:#ffffffeb;color:#020617;font:600 11.5px var(--sans);box-shadow:0 1px 3px #0005;cursor:pointer;white-space:nowrap}
+.fmk i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.fmk.on{background:#020617;color:#fff}
+.fmk.dim{opacity:.35!important} /* MapLibre sets inline opacity on markers */
+.maplibregl-ctrl-group{border-radius:var(--r-md)!important}
+.maplibregl-ctrl-attrib{font-size:10.5px}
+.offline{position:absolute;right:14px;top:14px;z-index:4}
+.chart-tabs{margin-bottom:12px}
+.regime{border-top:3px solid var(--border)}
+.regime.warn{border-top-color:var(--warn)} .regime.bad{border-top-color:var(--bad)}
+.regime .lbl{display:block;margin-bottom:6px}
+.regime p{font-size:13.5px;color:var(--fg-2);margin-bottom:12px}
+.statements{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--fg-2)}
+.kvx{display:grid;grid-template-columns:1fr auto auto;gap:8px 14px;font-size:13.5px;align-items:center}
+.kvx .k{color:var(--fg-2)} .kvx .m{font-size:12px;color:var(--muted-fg);text-align:right}
+/* phase 2 components */
+.crop-card{display:flex;flex-direction:column;gap:12px;text-align:left;cursor:pointer;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.crop-card:hover{border-color:var(--border-2)}
+.crop-card.on{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.crop-card .top{display:flex;align-items:center;gap:8px}
+.crop-card .top span{font-size:12.5px;color:var(--muted-fg);margin-left:auto}
+.dials{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.grp{margin:14px 0 6px}.grp:first-child{margin-top:0}
+.fmatrix td.c{padding:4px}
+.fmatrix .cell.bind{box-shadow:inset 0 0 0 2px var(--fg)}
+.minimap .layer{position:absolute;inset:0}
+.minimap .note{position:absolute;left:12px;top:12px;z-index:4;padding:6px 10px;border-radius:var(--r-sm);font-size:12px;background:#ffffffee;color:#020617}
+.bandrow{display:grid;grid-template-columns:170px minmax(0,1fr) 120px;gap:14px;align-items:center;padding:7px 8px;border-radius:var(--r-md)}
+.bandrow.on{background:var(--muted)}
+.bandrow .bl b{display:block;font-size:13.5px}
+.bandrow .bl span{font-size:12px;color:var(--muted-fg)}
+.bandrow .bb{display:flex;height:30px;border-radius:6px;overflow:hidden;gap:2px}
+.bandrow .bb>span{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;min-width:3px;cursor:default}
+.bandrow .br{text-align:right;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.b-tol{background:var(--chart-dim);color:var(--fg)} .b-mild{background:var(--warn);color:#020617} .b-high{background:var(--bad);color:#fff} .b-ext{background:color-mix(in srgb,var(--bad) 62%,#000);color:#fff}
+.thermo{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 16px;align-items:center;font-size:13px}
+.thermo .track{position:relative;height:34px}
+.thermo .track .bar{position:absolute;left:0;right:0;top:14px;height:6px;border-radius:3px;background:linear-gradient(90deg,#3d6fa8,#9fbcdb 40%,var(--muted) 55%)}
+.thermo .track .mk{position:absolute;top:0;transform:translateX(-50%);font-size:11px;white-space:nowrap;color:var(--muted-fg)}
+.thermo .track .mk i{display:block;margin:2px auto 0;width:2px;height:22px;background:var(--fg)}
+.thermo .track .mk.frost i{background:var(--bad)}
+.thermo .track .mk.frost{color:var(--bad-t)}
+.thermo .track .gap{position:absolute;top:16px;height:2px;border-top:2px dashed var(--ok)}
+.thermo .scale{position:relative;height:16px;font-size:11px;color:var(--muted-fg)}
+.thermo .scale span{position:absolute;transform:translateX(-50%)}
+.tier-card{display:flex;flex-direction:column;gap:8px;text-align:left;cursor:pointer;border-top:3px solid var(--border)}
+.tier-card.moderate{border-top-color:var(--na)} .tier-card.strong{border-top-color:var(--warn)} .tier-card.extraordinary{border-top-color:var(--bad)}
+.tier-card.on{box-shadow:0 0 0 1px var(--primary);border-color:var(--primary)}
+.tier-card .p{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.tier-card .sig{font-size:13px;color:var(--fg-2)}
+.rmatrix th.on,.rmatrix td.on{background:var(--muted)}
+.rmatrix td.grp-h{padding-top:16px;border-bottom:0}
+.rmatrix .band{font-style:italic}
+.profile{display:grid;grid-template-columns:150px 1fr 1fr;gap:8px 14px;align-items:center;font-size:13px}
+.profile .h{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-fg);font-weight:600}
+.profile .m{display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
+.profile .m b{text-align:right;font-weight:600}
+.profile button{text-align:left;display:flex;align-items:center;gap:8px}
+.walk-item{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 12px;border-radius:var(--r-lg);background:var(--muted);font-size:13.5px}
+.walk-item .chips{margin-top:6px}
+/* phase 3 */
+.chain{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.chain .card{position:relative;padding:16px 16px 18px}
+.chain .card:not(:last-child)::after{content:"→";position:absolute;right:-11px;top:50%;transform:translateY(-50%);color:var(--muted-fg);font-size:15px;z-index:1}
+.chain .card.end{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.chain .n{font-family:var(--mono);font-size:12px;color:var(--ok-t)}
+.chain h3{margin:6px 0 4px;font-size:15px}
+.chain p{font-size:12.5px;color:var(--muted-fg)}
+.chain .stack{gap:6px;margin-top:10px}
+.trig-ctl{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;font-size:13.5px;margin-bottom:6px}
+.trig-ctl input[type=range]{accent-color:var(--bad)}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:var(--gap)}
+.board .col{display:flex;flex-direction:column;gap:10px}
+.board .col .note{font-size:12.5px;color:var(--muted-fg)}
+.board .item{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)}
+.board .item b{display:block;font-size:14px}
+.board .item span{font-size:12.5px;color:var(--muted-fg)}
+.board .item a{font-size:12.5px;font-weight:600;margin-top:4px;display:inline-block}
+.board .box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:2px}
+.board .box.done{background:var(--ok-bg);border-color:var(--ok);color:var(--ok-t)}
+.timeline .checks{margin:4px 0 0;padding-left:16px;font-size:12.5px;color:var(--fg-2);display:flex;flex-direction:column;gap:2px}
+.print-head{display:none}
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print-head{display:block;font-size:12px;color:var(--muted-fg);margin-bottom:6px}
+  .head .row{display:none}
+  body.printing .screen:not([hidden]){break-after:page}
+  body.printing #s-map{display:none!important}
+  .swipe-s .knob{display:none}
+  .hero{min-height:300px}
+}
+@media (max-width:1100px){.chain{grid-template-columns:repeat(2,minmax(0,1fr))}.chain .card::after{display:none}}
+@media (max-width:1100px){.mapws{grid-template-columns:minmax(0,1fr)}.rail{position:static}.mapbox{height:70vh;min-height:420px}}
+@media (max-width:900px){.bandrow{grid-template-columns:1fr}.bandrow .br{text-align:left}.profile{grid-template-columns:110px 1fr 1fr}.peril{grid-template-columns:110px 1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar"><button type="button" class="btn ghost icon" data-nav-toggle aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><b>YARABAMBA</b></div>
+  <div class="scrim"></div>
+  <nav class="side" aria-label="Main">
+    <a class="brand" href="#overview"><div class="b1">YARABAMBA</div><div class="b2">REFINAGRO · DD PREVIEW</div></a>
+    <div class="nav">
+      <a href="#overview" data-route="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</a>
+      <a href="#map" data-route="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Valley map</a>
+      <a href="#suit" data-route="suit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 21c0-9 6-14 14-16-1 9-6 14-14 16zM5 21l7-7"/></svg>Suitability</a>
+      <a href="#heat" data-route="heat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Heat &amp; frost</a>
+      <a href="#elnino" data-route="elnino"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0M3 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0M12 3v3M5.6 5.6l1.8 1.8M18.4 5.6l-1.8 1.8"/></svg>El Niño</a>
+      <a href="#exposure" data-route="exposure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>Exposure</a>
+      <a href="#underwriting" data-route="underwriting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16V7"/></svg>Underwriting</a>
+      <a href="#next" data-route="next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12l5 5L20 6"/></svg>Next steps</a>
+    </div>
+    <div class="foot">Prepared for responsAbility · confidential</div>
+    <div class="nav" style="margin-top:6px">
+      <button type="button" data-theme-toggle><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Theme</button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="print-head" id="printHead"></div>
+    <div class="head">
+      <div>
+        <h1>Yarabamba</h1>
+        <div class="sub" id="sub"></div>
+      </div>
+      <div class="row"><span class="pill alert" id="alertPill"></span><button type="button" class="btn primary" id="exportBrief" title="Print or save the brief as PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg>Export brief</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="lens"><span class="lbl">CROP</span><div class="tabs sm" id="lensCrop"></div></div>
+      <div class="lens"><span class="lbl">SCENARIO</span><div class="tabs sm" id="lensTier"></div></div>
+      <span class="grow"></span>
+      <button type="button" class="btn sm" id="openSources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Sources &amp; limits</button>
+    </div>
+
+    <!-- ================= OVERVIEW ================= -->
+    <section class="screen" id="s-overview">
+      <section class="hero" aria-label="Asset headline" style="background-image:url(img/cover.jpg)">
+        <div class="hero-in">
+          <div>
+            <span class="eyebrow" id="heroEyebrow"></span>
+            <h2>The ground scores well. The variable that decides it doesn't show up from orbit.</h2>
+            <p>Crop suitability, thermal structure and a live El Niño risk model, built from the asset KMLs and public climate and soil data. Nothing here replaces boots on the ground; it tells you where to put them.</p>
+            <div class="row" style="margin-top:18px"><a class="btn primary" href="#map">Open the valley map</a><a class="btn" href="#elnino">El Niño outlook</a></div>
+          </div>
+          <div class="odds"><b id="heroOdds"></b><span>chance this summer is not normal<br>Dec 2026 – Mar 2027 · ENFEN</span></div>
+        </div>
+      </section>
+      <div class="kpis" id="ov-kpis"></div>
+      <div class="findings" id="ov-findings"></div>
+      <div class="two">
+        <div class="card flush">
+          <div class="card-head"><div><h3>The asset</h3><div class="desc" id="ov-assetDesc"></div></div><div class="tabs sm" id="ovLayer" aria-label="Map layer"></div></div>
+          <div class="minimap" id="ov-minimap" style="margin:0 22px;height:340px"></div>
+          <div class="map-legend"><div id="ov-mapLegend"></div><div><span class="lbl" style="display:block;margin-bottom:8px">LOTS · OUTLINED BY CROP</span><div class="legend col" id="ov-cropLegend"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head" style="margin-bottom:12px"><div><h3>Two perils, opposite corners</h3><div class="desc" id="ov-perilDesc"></div></div></div>
+          <div class="peril" id="ov-perils"></div>
+          <div class="callout small" style="margin-top:16px"><span class="lbl">READING</span><div>Flood concentrates up-valley on avocado; heat concentrates down-valley on blueberry, mandarin and Cojal. There is no single mitigation and no single number.</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h3>Fundos under this scenario</h3><div class="desc" id="ov-fundoDesc"></div></div><a class="btn sm" href="#map">Open on the map</a></div>
+        <div id="ov-fundos"></div>
+      </div>
+    </section>
+
+    <!-- ================= VALLEY MAP ================= -->
+    <section class="screen" id="s-map" hidden>
+      <div class="lede"><span class="eyebrow">VALLEY MAP · 23 LOTS OVER THE ANALYSIS LAYERS</span><h2 id="mapLede"></h2></div>
+      <div class="mapws">
+        <aside class="rail" aria-label="Map layers">
+          <div class="card">
+            <span class="lbl">LAYER</span>
+            <div class="lyr" id="lyrList"></div>
+            <div id="lyrOpts"></div>
+            <div class="ctl-row"><span class="muted">Opacity</span><input type="range" id="opacity" min="20" max="100" value="75" aria-label="Layer opacity" style="width:150px"></div>
+            <div class="ctl-row" id="cmpRow"><span>Compare <span class="muted small" id="cmpHint"></span></span><button type="button" class="switch" role="switch" aria-checked="false" id="cmpSwitch" aria-label="Swipe compare"></button></div>
+          </div>
+          <div class="card"><span class="lbl" id="legTitle">LEGEND</span><div id="legend"></div></div>
+          <div class="card"><div class="spread" style="margin-bottom:8px"><span class="lbl" style="margin:0" id="fundTitle">FUNDOS</span><span class="small muted" id="fundSort"></span></div><div class="fund-list" id="fundList"></div></div>
+        </aside>
+        <div class="mapbox" id="mapbox">
+          <div class="gl" id="gl"></div>
+          <div class="tl"><span class="chip dk" id="mapChipA">FLOOD</span><span class="chip mono" id="mapChipB"></span></div>
+          <div class="tools"><button type="button" id="btn3d" aria-pressed="false">3D</button><button type="button" id="btnFit" aria-label="Fit to lots">Fit</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SUITABILITY ================= -->
+    <section class="screen" id="s-suit" hidden>
+      <div class="lede"><span class="eyebrow">AGRICULTURAL SUITABILITY · ONE INDEX, 0–100, RULED BY THE LAW OF THE MINIMUM</span><h2 id="suitLede"></h2><p id="suitLedeSub"></p></div>
+      <div class="thirds" id="suitCrops"></div>
+      <div class="two">
+        <div class="card">
+          <div class="card-head"><div><h3 id="suitMapTitle"></h3><div class="desc" id="suitMapDesc"></div></div><a class="btn sm" id="suitMapLink" href="#map/layer=suit">Open on the valley map</a></div>
+          <div class="minimap" id="suitSwipe" style="height:430px"></div>
+        </div>
+        <div class="card">
+          <h3 id="factorTitle"></h3><div class="desc">Mean score per factor over the crop's own lots, irrigated. The crop's score is the per-pixel minimum, so it sits at or below the lowest bar. ◆ = soil, needs lab validation.</div>
+          <div id="factorBars"></div>
+        </div>
+      </div>
+      <div class="thirds" id="suitText"></div>
+      <div class="two">
+        <div class="card"><h3>Every factor, every crop</h3><div class="desc">Where each crop's score is decided. Outlined: the binding factor. * Salinity and sodicity are discounted in the final model: the WISE block over San Nicolás is a data artefact pending a field check.</div><div id="factorMatrix"></div></div>
+        <div class="card"><h3>What the 250 m soil read says ◆</h3><div class="desc">Raw values from SoilGrids / WISE over each crop's lots: the pre-management baseline, not the managed state today.</div><div id="soilRaw"></div>
+          <div class="callout warn small" style="margin-top:14px"><span class="lbl">◆ THE BASELINE IS THE SATELLITE'S; THE MANAGED STATE IS THE VISIT'S</span><div>Pits and lab chemistry show what management has achieved, and at what cost; the baseline is where the soil tends back to under a heavy-rain season.</div></div></div>
+      </div>
+    </section>
+
+    <!-- ================= HEAT & FROST ================= -->
+    <section class="screen" id="s-heat" hidden>
+      <div class="lede"><span class="eyebrow">CROP MICROCLIMATE · HEAT AND FROST, 30 m</span><h2 id="heatLede"></h2><p id="heatLedeSub"></p></div>
+      <div class="kpis" id="heatKpis"></div>
+      <div class="card">
+        <div class="card-head"><div><h3 id="bandTitle"></h3><div class="desc" id="bandDesc"></div></div><div class="legend" id="bandLegend"></div></div>
+        <div id="bandRows"></div>
+      </div>
+      <div class="two">
+        <div class="card">
+          <div class="card-head"><div><h3>Where the heat lands</h3><div class="desc" id="heatMapDesc"></div></div><a class="btn sm" id="heatMapLink" href="#map/layer=heat">Open on the valley map</a></div>
+          <div class="minimap" id="heatSwipe" style="height:400px"></div>
+        </div>
+        <div class="card">
+          <h3>Frost: a margin of nine degrees</h3><div class="desc">Coldest night on each crop's lots in twenty years, against the crop's frost line. Reconstruction at 30 m with cold-air pooling; station records would close it.</div>
+          <div id="frost"></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-head"><div><h3 id="dotTitle"></h3><div class="desc" id="dotDesc"></div></div><div class="legend" id="dotLegend"></div></div><div id="dotPlot"></div></div>
+      <div class="card flush"><div class="card-head"><div><h3>The thresholds behind every stress line</h3><div class="desc">Horticultural literature ranges for the varieties grown here, until the varieties and rootstocks are named on site. Where damage stops being a bad campaign (yield) and becomes a write-down (plants).</div></div></div><div id="tolerance" style="padding:0 22px 18px"></div></div>
+    </section>
+
+    <!-- ================= EXPOSURE ================= -->
+    <section class="screen" id="s-exposure" hidden>
+      <div class="lede"><span class="eyebrow">RISK ASSESSMENT PER CROP · EL NIÑO 2026-27</span><h2>One property, two perils, pulling in opposite directions.</h2><p>Flood concentrates up-valley on avocado; heat concentrates down-valley on blueberry and mandarin. Each crop is priced against the same three probability tiers, so the exposures can be compared, and the loss bands argued with rather than accepted.</p></div>
+      <div class="thirds" id="tierCards"></div>
+      <div class="kpis" id="expKpis"></div>
+      <div class="halves">
+        <div class="card"><div class="card-head"><div><h3>Where the water goes</h3><div class="desc" id="expFloodDesc"></div></div><a class="btn sm" id="expFloodLink" href="#map/layer=flood">Map</a></div><div class="minimap" id="expFloodMap" style="height:340px"></div></div>
+        <div class="card"><div class="card-head"><div><h3>Where the heat lands</h3><div class="desc" id="expHeatDesc"></div></div><a class="btn sm" id="expHeatLink" href="#map/layer=heat">Map</a></div><div class="minimap" id="expHeatMap" style="height:340px"></div></div>
+      </div>
+      <div class="card flush"><div class="card-head"><div><h3>Crop × tier</h3><div class="desc">Affected hectares per probability tier, and indicative loss bands ◆. The highlighted column is the scenario lens; the last column weights all three tiers by their ENFEN probability (derived).</div></div></div><div id="riskMatrix" style="padding:0 22px 18px"></div></div>
+      <div class="two">
+        <div class="card"><h3>The valley, coast to up-valley</h3><div class="desc" id="profileDesc"></div><div id="valleyProfile"></div></div>
+        <div class="card"><h3>Where we'd walk</h3><div class="desc">Field targeting, from the data. Click a fundo to open it on the map.</div><div class="stack tight" id="walk"></div></div>
+      </div>
+      <div class="thirds" id="readings"></div>
+    </section>
+
+    <!-- ================= UNDERWRITING ================= -->
+    <section class="screen" id="s-underwriting" hidden>
+      <div class="lede"><span class="eyebrow">WHAT THIS MEANS FOR YOU · CLIMATE RISK INTO UNDERWRITING SECURITY</span><h2>A continuous physical data stream becomes a defined, auditable trigger.</h2><p>A process built for an insurer, offered here as an architecture for your own structures. The chain does not care what sits at the end of it: a reserve, a covenant, an advance rate. The choice of structure is made with you, and no instrument is being proposed here.</p></div>
+      <div class="chain" id="uwChain"></div>
+      <div class="card">
+        <div class="card-head"><div><h3 id="trigTitle"></h3><div class="desc" id="trigDesc"></div></div><div class="tabs sm" id="trigIndex"><button type="button" data-value="stress" class="on">Stress days</button><button type="button" data-value="rain">Season rainfall</button><button type="button" data-value="hot">Hottest day</button></div></div>
+        <div class="trig-ctl"><span>Trigger <b id="trigLbl"></b></span><input type="range" id="trigThr" aria-label="Trigger threshold"><span class="mono small" id="trigOut"></span></div>
+        <div id="ch-trigger"></div>
+        <div class="kpis" id="trigKpis" style="margin-top:16px"></div>
+      </div>
+      <div class="two">
+        <div class="card"><div class="card-head"><div><h3>Debt-service coverage · same years</h3><div class="desc">The structure responds in the period the index fires. Unstructured, the bad year is unbounded; climate-indexed, it costs a little in normal years and has a floor in trigger years.</div></div><span class="tag na plain">illustrative</span></div><div id="ch-dscr"></div>
+          <div class="small muted" style="margin-top:8px">Illustrative: only the timing (which years fire) comes from the data above. Coverage levels, the reserve cost and the loss size are placeholders until debt terms and price series arrive.</div></div>
+        <div class="stack">
+          <div class="card"><h3>Three ways it can sit in your structure</h3><div class="stack tight" id="uwWays" style="margin-top:10px"></div></div>
+          <div class="card"><h3>Why a lender can rely on the trigger</h3><p class="small" id="uwRely" style="margin-top:6px;color:var(--fg-2)"></p></div>
+        </div>
+      </div>
+      <div class="two">
+        <div class="card"><h3>Attribution, read against Yarabamba</h3><div class="desc">Which perils the trigger should watch on this ground, from the analysis.</div><div id="uwAttr"></div></div>
+        <div class="card"><h3>Six data sets convert this preview into a debt-service view</h3><div class="desc">The risk pages hand over the physical inputs, hectares per tier and loss bands. These attach responsAbility's own numbers to them.</div><div id="uwData"></div></div>
+      </div>
+      <div class="callout warn" id="uwFraming"></div>
+    </section>
+
+    <!-- ================= NEXT STEPS ================= -->
+    <section class="screen" id="s-next" hidden>
+      <div class="lede"><span class="eyebrow">DUE-DILIGENCE DELIVERABLES · ENVISIONED NEXT STEPS</span><h2 id="nextLede"></h2><p>What a full engagement adds, and what runs continuously after close: the starting point for the conversation, not a scope already fixed.</p></div>
+      <div class="kpis" id="nextKpis"></div>
+      <div class="board" id="board"></div>
+      <div class="two">
+        <div class="card"><h3>Site-visit plan, coast to up-valley</h3><div class="desc" id="itinDesc"></div><ul class="timeline" id="itinerary" style="margin-top:12px"></ul></div>
+        <div class="card"><div class="card-head"><div><h3>Data requests</h3><div class="desc">What would move these numbers more than any further remote analysis.</div></div></div><div class="chips" id="reqOwner" style="margin-bottom:12px"></div><div id="reqTable"></div></div>
+      </div>
+      <div class="callout ok" id="closing"></div>
+    </section>
+
+    <!-- ================= EL NIÑO ================= -->
+    <section class="screen" id="s-elnino" hidden>
+      <div class="callout bad" id="nino-alert"></div>
+      <div class="lede"><span class="eyebrow">EXTREME WEATHER · EL NIÑO SHOWCASE</span><h2>We got curious about the region. The baseline had already moved.</h2><p id="ninoLedeSub"></p></div>
+      <div class="kpis" id="nino-kpis"></div>
+      <div class="two">
+        <div class="card">
+          <div class="card-head"><div><h3>ENFEN outlook, month by month</h3><div class="desc">Niño 1+2 magnitude probability · Comunicado Oficial 15-2026, 28 Aug 2026</div></div></div>
+          <div id="ch-enfen"></div>
+        </div>
+        <div class="card">
+          <h3>Summer magnitude · Dec 26 – Mar 27</h3><div class="desc">Probability by category, Niño 1+2. The scenario lens reads from these.</div>
+          <div id="ch-summer"></div>
+          <ul class="statements" id="enfenStatements"></ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div><h3 id="hotTitle"></h3><div class="desc" id="hotDesc"></div></div>
+          <div class="tabs sm chart-tabs" id="hotTabs"><button type="button" data-value="hottest" class="on">Hottest day</button><button type="button" data-value="means">Annual means</button></div>
+        </div>
+        <div id="ch-hot"></div>
+      </div>
+      <div class="halves">
+        <div class="card"><div class="card-head" style="margin-bottom:10px"><div><h3 id="stressTitle"></h3><div class="desc" id="stressDesc"></div></div></div><div id="ch-stress"></div></div>
+        <div class="card"><div class="card-head" style="margin-bottom:10px"><div><h3>Rainfall per year, and the 2026-27 scenario</h3><div class="desc" id="rainDesc"></div></div></div><div id="ch-rain"></div></div>
+      </div>
+      <div class="two">
+        <div class="card">
+          <h3>El Niño seasons on this ground</h3><div class="desc">Sep–Apr of each season over the lots. The classic events did not cross the line; the stress days belong to the recent seasons, on a warmer baseline.</div>
+          <div id="t-seasons"></div>
+        </div>
+        <div class="card">
+          <h3>All 44 seasons, ranked</h3><div class="desc">Heat and rain anomaly index, 1981–2025. The historical events surface on their own and split into two regimes.</div>
+          <div id="ch-rank"></div>
+        </div>
+      </div>
+      <div class="halves" id="regimes"></div>
+    </section>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script src="layers.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script>
+const { $, $$, esc, fmt } = DD;
+const C = YB.crops, T = YB.tiers, CL = YB.climate;
+const CROP_KEYS = Object.keys(C), TIER_KEYS = ["today", ...Object.keys(T)];
+const TIER_NAME = (k) => (k === "today" ? "Today" : T[k].name);
+const TIER_TONE = { today: "", moderate: "na", strong: "warn", extraordinary: "bad" };
+const aTier = (k) => (/^[aeiou]/i.test(TIER_NAME(k)) ? "an " : "a ") + TIER_NAME(k).toLowerCase();
+const titleCase = (x) => String(x || "").toLowerCase().replace(/(^|[\s(+])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()).replace(/\bHa\b/g, "ha");
+const cv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const cropHex = (ck) => cv("--" + C[ck].color);
+const mean = (a) => DD.sum(a) / a.length;
+const fundoByKey = Object.fromEntries(YB.fundos.map((f) => [f.key, f]));
+
+// ---------------------------------------------------------------- derived figures
+const PLANTED = DD.sum(YB.fundos, (f) => f.productive_ha);
+const LOT_HA = DD.sum(CROP_KEYS, (k) => C[k].risk_lot_ha);
+const ODDS = T.strong.p + T.extraordinary.p;
+const YI = (y) => CL.years.indexOf(y);
+const LINE_SERIES = { 32: CL.d32, 33: CL.d33, 34: CL.d34 };
+const stressLine = () => (STATE.crop === "all" ? 32 : C[STATE.crop].stress);
+const stressDays = () => LINE_SERIES[stressLine()];
+const beforeAfter = (arr) => [mean(arr.filter((_, i) => CL.years[i] <= 2005)), mean(arr.filter((_, i) => CL.years[i] >= 2006))];
+const SEASON_BANDS = [[1982, 1983, "El Niño 1982-83"], [1997, 1998, "El Niño 1997-98"], [2015, 2017, "El Niño 2015-16 · 2016-17"], [2022, 2024, "El Niño 2022-23 · 2023-24"]];
+const sinceAbove = (() => { let y = null; for (let i = CL.years.length - 1; i >= 0 && CL.hottest[i] >= 32; i--) y = CL.years[i]; return y; })();
+const rankBySeason = Object.fromEntries(YB.ranking.map((r) => [r.season, r]));
+const regimeOf = (mult) => (mult >= 2 ? ["bad", "drowned"] : mult < 0.5 ? ["warn", "cooked"] : ["na", "mixed"]);
+const heatOf = (f, tier) => (tier === "today" ? f.tmax.p98 : +(f.tmax.p99 + T[tier].dT).toFixed(1));
+const floodOf = (f, tier) => (tier === "today" ? 0 : f.flood[tier]);
+const heatTone = (v, ck) => (v >= C[ck].stress ? "bad" : v >= C[ck].stress - 0.5 ? "warn" : "ok");
+const floodTone = (p) => (p >= 50 ? "bad" : p >= 20 ? "warn" : p > 0 ? "na" : "ok");
+
+// ---------------------------------------------------------------- state · lenses · hash
+const STATE = { route: "overview", crop: "all", tier: "extraordinary", layer: "flood", variant: "soil", fundo: null, opacity: 75, compare: false, view3d: false, hotTab: "hottest", trig: "stress", thr: {}, owner: "all", ovLayer: "flood" };
+function applyParams(param) {
+  if (!param) return;
+  const q = new URLSearchParams(param);
+  if (q.has("crop") && (q.get("crop") === "all" || C[q.get("crop")])) STATE.crop = q.get("crop");
+  if (q.has("tier") && TIER_KEYS.includes(q.get("tier"))) STATE.tier = q.get("tier");
+  if (q.has("layer") && LAYERS[q.get("layer")]) STATE.layer = q.get("layer");
+  if (q.has("variant")) STATE.variant = q.get("variant") === "ph" ? "ph" : "soil";
+  STATE.fundo = q.has("fundo") && fundoByKey[q.get("fundo")] ? q.get("fundo") : STATE.fundo;
+  if (q.has("view")) STATE.ovLayer = q.get("view") === "heat" ? "heat" : "flood";
+}
+function syncHash() {
+  const q = new URLSearchParams();
+  if (STATE.crop !== "all") q.set("crop", STATE.crop);
+  if (STATE.tier !== "extraordinary") q.set("tier", STATE.tier);
+  if (STATE.route === "overview" && STATE.ovLayer === "heat") q.set("view", "heat");
+  if (STATE.route === "map") { q.set("layer", STATE.layer); if (STATE.layer === "suit" && STATE.variant === "ph") q.set("variant", "ph"); if (STATE.fundo) q.set("fundo", STATE.fundo); }
+  const qs = q.toString();
+  history.replaceState(null, "", "#" + STATE.route + (qs ? "/" + qs : ""));
+}
+$("#lensCrop").innerHTML = `<button type="button" data-value="all">All</button>` + CROP_KEYS.map((k) => `<button type="button" data-value="${k}"><span class="dot" style="background:var(--${C[k].color});margin-right:6px"></span>${C[k].name}</button>`).join("");
+$("#lensTier").innerHTML = TIER_KEYS.map((k) => `<button type="button" data-value="${k}">${TIER_NAME(k)}${k === "today" ? "" : ` · ${T[k].p} %`}</button>`).join("");
+const cropApi = DD.select("#lensCrop", (v) => { STATE.crop = v; renderCurrent(); syncHash(); });
+const tierApi = DD.select("#lensTier", (v) => { STATE.tier = v; DD.refresh(".screen:not([hidden])", renderCurrent, 220); syncHash(); });
+
+// ---------------------------------------------------------------- header
+$("#sub").textContent = `${YB.place} · ${YB.lots.features.length} lots · ${YB.fundos.length} fundos · DD preview as of ${YB.asOfLabel} · prepared for ${YB.preparedFor}`;
+$("#alertPill").textContent = `${YB.enfen.status} · ENFEN ${YB.enfen.comunicado.replace("Comunicado Oficial N.º ", "")}`;
+
+// ---------------------------------------------------------------- static map (overview + offline fallback)
+const [W, S, E, N] = YB.bbox, KX = Math.cos(((S + N) / 2) * Math.PI / 180) * 1000, KY = 1000;
+const px = (lon) => (lon - W) * KX, py = (lat) => (N - lat) * KY;
+const ringsOf = (g) => (g.type === "MultiPolygon" ? g.coordinates.flat() : g.coordinates);
+const LOT_BOX = (() => { let a = [180, 90, -180, -90]; YB.lots.features.forEach((f) => ringsOf(f.geometry).forEach((r) => r.forEach(([x, y]) => { a = [Math.min(a[0], x), Math.min(a[1], y), Math.max(a[2], x), Math.max(a[3], y)]; }))); return a; })();
+const FUNDO_XY = Object.fromEntries(YB.fundos.map((f) => {
+  const pts = YB.lots.features.filter((l) => l.properties.fkey === f.key).flatMap((l) => ringsOf(l.geometry)[0]);
+  return [f.key, [mean(pts.map((p) => p[0])), mean(pts.map((p) => p[1]))]];
+}));
+function staticMap(el, { overlay = null, opacity = 0.7, pad = 0.08, labels = true, crop = STATE.crop } = {}) {
+  el = typeof el === "string" ? $(el) : el;
+  const x0 = px(LOT_BOX[0]), x1 = px(LOT_BOX[2]), y0 = py(LOT_BOX[3]), y1 = py(LOT_BOX[1]), dx = (x1 - x0) * pad, dy = (y1 - y0) * pad + 6;
+  const vb = [x0 - dx, y0 - dy, x1 - x0 + 2 * dx, y1 - y0 + 2 * dy], fs = vb[2] / 70;
+  const full = `x="0" y="0" width="${px(E)}" height="${py(S)}" preserveAspectRatio="none"`;
+  let s = `<svg viewBox="${vb.join(" ")}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Lots over satellite imagery"><image href="img/satellite.jpg" ${full}/>`;
+  if (overlay && YB_LAYERS[overlay]) s += `<image href="${YB_LAYERS[overlay].url}" ${full} opacity="${opacity}"/>`;
+  YB.lots.features.forEach((f) => {
+    const p = f.properties, dim = crop !== "all" && crop !== p.crop;
+    const d = ringsOf(f.geometry).map((r) => "M" + r.map(([x, y]) => `${px(x).toFixed(1)},${py(y).toFixed(1)}`).join("L") + "Z").join("");
+    s += `<path class="lot${dim ? " dimmed" : ""}" data-f="${p.fkey}" d="${d}" style="fill:var(--${C[p.crop].color});stroke:var(--${C[p.crop].color})" fill-opacity=".38" stroke-width="${fs / 5}"/>`;
+  });
+  if (labels) YB.fundos.forEach((f) => {
+    const [x, y] = FUNDO_XY[f.key], dim = crop !== "all" && crop !== f.crop;
+    s += `<text x="${px(x).toFixed(1)}" y="${(py(y) - fs * 1.3).toFixed(1)}" text-anchor="middle" font-size="${fs}" font-weight="600" fill="#fff" stroke="#020617" stroke-width="${fs / 4}" paint-order="stroke" style="font-family:var(--sans)" class="${dim ? "dimmed" : ""}" pointer-events="none">${esc(f.name)}</text>`;
+  });
+  el.innerHTML = s + "</svg>";
+  $$(".lot", el).forEach((p) => {
+    const f = fundoByKey[p.dataset.f];
+    p.addEventListener("pointermove", (e) => DD.tip.show(e.clientX, e.clientY, fundoTip(f)));
+    p.addEventListener("pointerleave", DD.tip.hide);
+    p.addEventListener("click", () => { DD.tip.hide(); location.hash = `#map/layer=${STATE.layer}&fundo=${f.key}`; });
+  });
+}
+function fundoTip(f) {
+  const tier = STATE.tier, h = heatOf(f, tier);
+  return { title: `${f.name} · ${C[f.crop].name}`, rows: [
+    { name: "Productive", value: `${fmt.n(f.productive_ha, 1)} ha` },
+    { name: tier === "today" ? "Typical extreme day" : `Heat · ${TIER_NAME(tier).toLowerCase()}`, value: `${fmt.n(h, 1)} °C (line ${C[f.crop].stress})` },
+    { name: tier === "today" ? "Flood" : `Flood · ${TIER_NAME(tier).toLowerCase()}`, value: tier === "today" ? "no stage" : `${fmt.n(floodOf(f, tier))} % of area` },
+  ] };
+}
+
+// ---------------------------------------------------------------- layer legends (one source: the ramps and classes in layers.js)
+const rampCss = (lid) => { const m = YB_LAYERS[lid]; return m.ramp ? `linear-gradient(90deg,${m.ramp.join(",")})` : `linear-gradient(90deg,${m.classes.map((c) => c[0]).join(",")})`; };
+function overlayLegend(lid, { crop = STATE.crop } = {}) {
+  const m = YB_LAYERS[lid]; if (!m) return "";
+  let h = `<div class="small" style="margin-bottom:8px"><b>${esc(m.name)}</b></div>`;
+  if (m.classes) {
+    h += `<div class="legend col">${m.classes.map(([color, label]) => `<span><i style="background:${color}"></i>${esc(label)}</span>`).join("")}</div>`;
+    h += `<div class="small muted" style="margin-top:8px">Stages nest: a stronger event also floods the lower ground. ${esc(m.note.replace("; tiers nest", ""))}.</div>`;
+    return h;
+  }
+  const [d0, d1] = m.domain, pos = (v) => ((v - d0) / (d1 - d0)) * 100, unit = m.group === "suit" ? "" : " °C";
+  let ticks = `<span style="left:0;transform:none">${d0}${unit}</span><span style="left:100%;transform:translateX(-100%)">${d1}${unit}</span>`;
+  if (m.group === "heat") ticks += CROP_KEYS.map((k) => `<span class="line ${crop === k ? "hot" : ""}" style="left:${pos(C[k].stress)}%">${C[k].stress}</span>`).join("");
+  if (m.group === "suit") ticks += `<span class="line" style="left:${pos(50)}%">50</span><span class="line" style="left:${pos(80)}%">80</span>`;
+  h += `<div class="ramp-leg"><div class="bar" style="background:${rampCss(lid)}"></div><div class="ticks">${ticks}</div></div>`;
+  if (m.group === "heat") {
+    h += `<div class="legend">${CROP_KEYS.slice().sort((x, y) => C[x].stress - C[y].stress).map((k) => `<span class="${crop !== "all" && crop !== k ? "dimmed" : ""}"><i class="line" style="background:var(--${C[k].color})"></i>${C[k].name} line ${C[k].stress} °C</span>`).join("")}</div>`;
+    h += `<div class="small muted" style="margin-top:8px">Brighter than a crop's line: ground where that crop loses yield on this day. ${esc(m.note)}.</div>`;
+  } else if (m.group === "suit") h += `<div class="small muted">Red is the constraint, green is suitable. ${esc(m.note)}.</div>`;
+  else h += `<div class="small muted">${esc(m.note)}.</div>`;
+  return h;
+}
+
+// ---------------------------------------------------------------- overview
+function renderOverview() {
+  const crop = STATE.crop, tier = STATE.tier, ck = crop === "all" ? null : crop;
+  $("#heroEyebrow").textContent = `DD PREVIEW SNAPSHOT · ${fmt.n(PLANTED)} HECTARES · ${YB.place.toUpperCase()}`;
+  $("#heroOdds").textContent = ODDS + " %";
+  const clim = CROP_KEYS.map((k) => C[k].suit.climate), soils = CROP_KEYS.map((k) => C[k].suit.soil).filter((v) => v != null);
+  const [b, a] = beforeAfter(stressDays()), peak = Math.max(...stressDays()), peakY = CL.years[stressDays().indexOf(peak)];
+  const s = ck ? C[ck].suit : null;
+  const planted = ck ? DD.sum(YB.fundos.filter((f) => f.crop === ck), (f) => f.productive_ha) : PLANTED;
+  $("#ov-kpis").innerHTML = `
+    <div class="kpi"><span class="kpi-label">${ck ? `<span class="dot" style="background:var(--${C[ck].color})"></span>${C[ck].name} · planted` : "Planted area"}</span><b class="kpi-value">${fmt.n(planted)} <span class="muted" style="font-size:15px;font-weight:500">ha</span></b><span class="kpi-meta">${ck ? `${fmt.pct(planted / PLANTED)} of the asset · ${C[ck].variety}` : `productive · ${fmt.n(LOT_HA)} ha of lots`}</span><div id="ov-cropStack"></div></div>
+    <div class="kpi ok"><span class="kpi-label"><span class="dot ok"></span>Climate suitability</span><b class="kpi-value">${ck ? `${s.climate} → ${s.climate2040}` : `${Math.min(...clim)}–${Math.max(...clim)}`}</b><span class="kpi-meta">${ck ? "2026 → 2040 on the observed trend" : "all three crops · holds to 2040"}</span></div>
+    <div class="kpi ${ck && s.soil == null ? "" : "bad"}"><span class="kpi-label">${ck && s.soil == null ? "" : '<span class="dot bad"></span>'}Soil suitability ◆</span><b class="kpi-value">${ck ? (s.soil == null ? "potted" : `${s.soil} → ${s.soil_managed}`) : `${Math.min(...soils)}–${Math.max(...soils)}`}</b><span class="kpi-meta">${ck ? (s.soil == null ? "soil and terrain engineered out" : "baseline → pH amended · lab to confirm") : "baseline read at 250 m · lab to confirm"}</span></div>
+    <div class="kpi warn"><span class="kpi-label"><span class="dot warn"></span>Stress days ≥ ${stressLine()} °C</span><b class="kpi-value">${fmt.n(a, 1)}<span class="muted" style="font-size:15px;font-weight:500"> / yr</span></b><span class="kpi-meta"><span class="delta bad">+${fmt.n(a - b, 1)}</span>vs ${fmt.n(b, 1)} before 2006 · ${fmt.n(peak)} in ${peakY}</span><svg class="spark" id="ov-spark"></svg></div>
+    <div class="kpi bad"><span class="kpi-label"><span class="dot bad"></span>El Niño 2026-27</span><b class="kpi-value">${ODDS} %</b><span class="kpi-meta">strong ${T.strong.p} % + extraordinary ${T.extraordinary.p} %</span></div>`;
+  if (!ck) DD.chart.stack("#ov-cropStack", CROP_KEYS.map((k) => ({ label: C[k].name, value: DD.sum(YB.fundos.filter((f) => f.crop === k), (f) => f.productive_ha), color: C[k].color })), { legend: false });
+  DD.chart.spark("#ov-spark", stressDays(), { tone: "warn" });
+
+  const FINDINGS = [
+    ["01", "Extract field intel", "Climate scores 91–98 and terrain 95–97. The binding constraint on avocado and mandarin is soil chemistry, and that isn't visible from satellite.", "Suitability", "#suit"],
+    ["02", "El Niño around the corner", `Stress days went from ${fmt.n(beforeAfter(CL.d32)[0], 1)} a year to ${fmt.n(beforeAfter(CL.d32)[1], 1)}, and 2023-24 delivered ${YB.seasons.find((x) => x.season === "2023-24").d32}. The risk is the warmer baseline, not the event.`, "El Niño outlook", "#elnino"],
+    ["03", "What we cannot see", "Soil chemistry, water rights, yield history by lot, varieties and rootstocks. All four live with your team, and would move these numbers more than any remote analysis.", "Sources & limits", null],
+    ["04", "Where we'd walk", "Flood concentrates up-valley on avocado; heat down-valley on blueberry, mandarin and Cojal. Chumbenique II-III is the flood-critical fundo.", "Exposure", "#exposure"],
+  ];
+  $("#ov-findings").innerHTML = FINDINGS.map((f) => `<div class="card finding"><span class="n">${f[0]}</span><h3>${esc(f[1])}</h3><p>${esc(f[2])}</p>${f[4] ? `<a class="btn ghost sm" href="${f[4]}">${esc(f[3])} →</a>` : `<button type="button" class="btn ghost sm" data-open-sources>${esc(f[3])} →</button>`}</div>`).join("");
+
+  $("#ov-cropLegend").innerHTML = CROP_KEYS.map((k) => `<span class="${ck && ck !== k ? "dimmed" : ""}"><i style="background:var(--${C[k].color})"></i>${C[k].name} · <b>${fmt.n(DD.sum(YB.fundos.filter((f) => f.crop === k), (f) => f.productive_ha))}</b>&nbsp;ha</span>`).join("");
+  const ov = STATE.ovLayer, ovId = ov === "heat" ? `heat-${tier}` : tier === "today" ? null : `flood-${tier}`;
+  $("#ovLayer").innerHTML = [["flood", "Flood exposure", `flood-extraordinary`], ["heat", "Extreme heat", "heat-today"]].map(([k, l, ref]) => `<button type="button" data-value="${k}" class="${ov === k ? "on" : ""}" aria-pressed="${ov === k}"><span class="sw" style="background:${rampCss(ref)}"></span>${l}</button>`).join("");
+  staticMap("#ov-minimap", { overlay: ovId, opacity: ov === "heat" ? 0.72 : 0.6 });
+  if (!ovId) $("#ov-minimap").insertAdjacentHTML("beforeend", `<span class="note">No flood stage in a typical year. Pick an El Niño scenario above.</span>`);
+  $("#ov-mapLegend").innerHTML = ovId ? overlayLegend(ovId) : `<div class="small muted">In a typical year the Río Zaña stays in its channel: no ground is in a flood stage. Choose Moderate, Strong or Extraordinary in the scenario lens to see where the water goes.</div>`;
+  $("#ov-assetDesc").textContent = `${YB.lots.features.length} production lots in ${YB.fundos.length} fundos along the Río Zaña · ${ov === "heat" ? (tier === "today" ? "extreme heat on a typical year's hottest days" : `extreme heat under ${aTier(tier)} El Niño`) : (tier === "today" ? "flood exposure (none in a typical year)" : `flood exposure under ${aTier(tier)} El Niño`)}. Click a lot.`;
+
+  $("#ov-perilDesc").textContent = tier === "today" ? "A typical year today: no flood stage; heat past the line only where the crop already lives on it." : `${aTier(tier).replace(/^a/, "A")} El Niño (p = ${T[tier].p} %): ground exposed to flooding, and ground whose extreme day crosses the crop's stress line.`;
+  const tone = TIER_TONE[tier] === "na" ? "" : TIER_TONE[tier] || "warn";
+  const cell = (ha, base) => `<div class="v"><span><b>${fmt.n(ha)} ha</b><span class="muted">${fmt.pct(ha / base)}</span></span><div class="meter"><i class="${tone}" style="width:${(ha / base) * 100}%"></i></div></div>`;
+  const rows = CROP_KEYS.map((k) => {
+    const dim = ck && ck !== k ? "dimmed" : "", base = C[k].risk_lot_ha;
+    return `<div class="person ${dim}"><span class="dot" style="background:var(--${C[k].color})"></span><div><b>${C[k].name}</b><span>${fmt.n(base)} ha of lots · line ${C[k].stress} °C</span></div></div><span class="${dim}">${cell(YB.exposure.flood[tier][k], base)}</span><span class="${dim}">${cell(YB.exposure.heat[tier][k], base)}</span>`;
+  }).join("");
+  const tot = (kind) => DD.sum(CROP_KEYS, (k) => YB.exposure[kind][tier][k]);
+  $("#ov-perils").innerHTML = `<span></span><span class="h"><button type="button" data-ov="flood" class="${STATE.ovLayer === "flood" ? "on" : ""}" title="Show on the map">Flood-exposed</button></span><span class="h"><button type="button" data-ov="heat" class="${STATE.ovLayer === "heat" ? "on" : ""}" title="Show on the map">Heat past the line</button></span>${rows}<span class="muted small">Whole property</span><span class="small"><b>${fmt.n(tot("flood"))} ha</b> · ${fmt.pct(tot("flood") / LOT_HA)}</span><span class="small"><b>${fmt.n(tot("heat"))} ha</b> · ${fmt.pct(tot("heat") / LOT_HA)}</span>`;
+
+  $("#ov-fundoDesc").textContent = `${tier === "today" ? "Typical extreme day (p98)" : `1-in-10-year day + ${T[tier].dT} °C (${TIER_NAME(tier).toLowerCase()} analogs)`} against each crop's stress line; flood share of the fundo's area. Click a row to open it on the map.`;
+  fundoTable.update(YB.fundos.filter((f) => !ck || f.crop === ck));
+}
+function setOvLayer(v) { if (!v || v === STATE.ovLayer) return; STATE.ovLayer = v; renderOverview(); syncHash(); }
+$("#ovLayer").addEventListener("click", (e) => { const b = e.target.closest("[data-value]"); if (b) setOvLayer(b.dataset.value); });
+$("#ov-perils").addEventListener("click", (e) => { const b = e.target.closest("[data-ov]"); if (b) setOvLayer(b.dataset.ov); });
+const fundoTable = DD.table("#ov-fundos", {
+  rows: [], rowKey: "key", sort: "flood", onRow: (f) => { location.hash = `#map/layer=${STATE.layer}&fundo=${f.key}`; },
+  cols: [
+    { key: "name", label: "Fundo", sort: true, render: (f) => `<span class="row nowrap" style="gap:8px"><span class="dot" style="background:var(--${C[f.crop].color})"></span><b>${esc(f.name)}</b></span>` },
+    { key: "crop", label: "Crop", sort: true, render: (f) => C[f.crop].name },
+    { key: "productive_ha", label: "Productive ha", align: "r", num: true, sort: true, render: (f) => fmt.n(f.productive_ha, 1) },
+    { key: "heat", label: "Extreme day", align: "r", num: true, sort: (f) => heatOf(f, STATE.tier) - C[f.crop].stress, render: (f) => { const v = heatOf(f, STATE.tier); return `<span class="st ${heatTone(v, f.crop)}">${fmt.n(v, 1)} °C</span> <span class="muted small">/ ${C[f.crop].stress}</span>`; } },
+    { key: "flood", label: "Flood-exposed", align: "r", num: true, sort: (f) => floodOf(f, STATE.tier), render: (f) => (STATE.tier === "today" ? '<span class="muted">no stage</span>' : `<span class="st ${floodTone(floodOf(f, STATE.tier))}">${fmt.n(floodOf(f, STATE.tier))} %</span>`) },
+    { key: "note", label: "On the visit", render: (f) => (f.note ? `<span class="small">${esc(f.note.split(/\.\s/)[0].replace(/\.$/, ""))}.</span>` : '<span class="muted">—</span>') },
+  ],
+});
+
+// ---------------------------------------------------------------- valley map: layer model
+const LAYERS = {
+  none:  { name: "Satellite only", sub: "lots over imagery", id: () => null },
+  flood: { name: "Flood exposure", sub: "follows the scenario", id: () => (STATE.tier === "today" ? null : `flood-${STATE.tier}`) },
+  heat:  { name: "Extreme heat", sub: "follows the scenario", id: () => `heat-${STATE.tier}` },
+  cold:  { name: "Coldest nights", sub: "frost margin", id: () => "cold-p02" },
+  suit:  { name: "Suitability", sub: "follows the crop", id: () => `suit-${suitCrop()}-${suitVariant()}` },
+};
+const SWATCH = { none: "linear-gradient(135deg,#3f5a3a,#7a6a45)", flood: rampCss("flood-extraordinary"), heat: rampCss("heat-today"), cold: rampCss("cold-p02"), suit: rampCss("suit-avocado-soil") };
+const suitCrop = () => (STATE.crop === "all" ? "avocado" : STATE.crop);
+const suitVariant = () => (suitCrop() === "blueberry" ? "climate" : STATE.variant);
+function comparePair() {
+  if (STATE.layer === "suit" && suitCrop() !== "blueberry") return [`suit-${suitCrop()}-soil`, `suit-${suitCrop()}-ph`, `Soil read · ${C[suitCrop()].suit.soil}`, `pH amended · ${C[suitCrop()].suit.soil_managed}`];
+  if (STATE.layer === "heat") { const t = STATE.tier === "today" ? "extraordinary" : STATE.tier; return ["heat-today", `heat-${t}`, "Typical year · p98", `${TIER_NAME(t)} El Niño`]; }
+  if (STATE.layer === "flood") { const t = ["today", "moderate"].includes(STATE.tier) ? "extraordinary" : STATE.tier; return ["flood-moderate", `flood-${t}`, "Moderate event", `${TIER_NAME(t)} event`]; }
+  return null;
+}
+function fundoValue(f) {
+  const L = STATE.layer, t = STATE.tier;
+  if (L === "flood") return t === "today" ? [0, "—", "ok"] : [f.flood[t], `${fmt.n(f.flood[t])} %`, floodTone(f.flood[t])];
+  if (L === "heat") { const v = heatOf(f, t); return [v - C[f.crop].stress, `${fmt.n(v, 1)} °C`, heatTone(v, f.crop)]; }
+  if (L === "cold") return [-f.tmin.p02, `${fmt.n(f.tmin.p02, 1)} °C`, "ok"];
+  if (L === "suit") return suitVariant() === "ph" ? [0, "—", "na"] : [-f.suit, fmt.n(f.suit), f.suit >= 80 ? "ok" : f.suit >= 50 ? "warn" : "bad"];
+  return [f.productive_ha, `${fmt.n(f.productive_ha)} ha`, "na"];
+}
+const FUND_SORT = { flood: "most exposed first", heat: "closest to the line first", cold: "coldest first", suit: "lowest score first", none: "largest first" };
+
+function renderRail() {
+  $("#lyrList").innerHTML = Object.entries(LAYERS).map(([k, l]) => `<button type="button" data-value="${k}" class="${STATE.layer === k ? "on" : ""}"><span class="sw" style="background:${SWATCH[k]}"></span><span>${l.name}<br><span class="sub">${l.sub}</span></span><span></span></button>`).join("");
+  let opts = "";
+  if (STATE.layer === "suit") {
+    opts = suitCrop() === "blueberry" ? `<div class="small muted" style="margin-top:10px">Blueberry is potted: soil and terrain are excluded, so the score is the climate read.</div>`
+      : `<div class="tabs sm" id="variantTabs" style="margin-top:10px"><button type="button" data-value="soil" class="${STATE.variant === "soil" ? "on" : ""}">Soil read · ${C[suitCrop()].suit.soil}</button><button type="button" data-value="ph" class="${STATE.variant === "ph" ? "on" : ""}">pH amended · ${C[suitCrop()].suit.soil_managed}</button></div>`;
+    if (STATE.crop === "all") opts += `<div class="small muted" style="margin-top:8px">Showing avocado. Pick a crop in the lens above.</div>`;
+  }
+  if (STATE.layer === "flood" && STATE.tier === "today") opts = `<div class="callout small" style="margin-top:10px">No flood stage in a typical year. Pick a scenario in the lens above.</div>`;
+  $("#lyrOpts").innerHTML = opts;
+  if ($("#variantTabs")) DD.select("#variantTabs", (v) => { STATE.variant = v; renderMap(); syncHash(); });
+  const pair = comparePair();
+  $("#cmpRow").style.display = pair ? "" : "none";
+  $("#cmpHint").textContent = pair ? `${pair[2].split(" ·")[0]} ↔ ${pair[3].split(" ·")[0]}` : "";
+  $("#cmpSwitch").setAttribute("aria-checked", STATE.compare && !!pair);
+
+  const lid = LAYERS[STATE.layer].id(), meta = lid && YB_LAYERS[lid];
+  $("#legTitle").textContent = meta ? "LEGEND" : "LOTS";
+  let leg = meta ? overlayLegend(lid) : "";
+  if (STATE.layer === "cold") leg += `<div class="callout ok small" style="margin-top:10px">Frost lines sit at 0 °C (avocado, blueberry) and −2 °C (mandarin). The coldest night on any lot in 20 years was ${fmt.n(Math.min(...CROP_KEYS.map((k) => C[k].coldest)), 1)} °C.</div>`;
+  if (!meta) leg = `<div class="legend col">${CROP_KEYS.map((k) => `<span><i style="background:var(--${C[k].color})"></i>${C[k].name} · ${YB.fundos.filter((f) => f.crop === k).length} fundos</span>`).join("")}</div>`;
+  $("#legend").innerHTML = leg;
+
+  const list = YB.fundos.filter((f) => STATE.crop === "all" || f.crop === STATE.crop).map((f) => [f, fundoValue(f)]).sort((a, b) => b[1][0] - a[1][0]);
+  $("#fundTitle").textContent = `FUNDOS · ${list.length}`;
+  $("#fundSort").textContent = FUND_SORT[STATE.layer];
+  $("#fundList").innerHTML = list.map(([f, v]) => `<button type="button" data-f="${f.key}" class="${STATE.fundo === f.key ? "on" : ""}"><span class="dot" style="background:var(--${C[f.crop].color})"></span><span><b>${esc(f.name)}</b><small>${C[f.crop].name} · ${fmt.n(f.productive_ha)} ha</small></span><span class="val st ${v[2]}">${v[1]}</span></button>`).join("");
+  const chipA = { none: "SATELLITE", flood: "FLOOD", heat: "HEAT", cold: "COLD", suit: "SUITABILITY" }[STATE.layer];
+  $("#mapChipA").textContent = chipA;
+  const cp = STATE.compare ? comparePair() : null;
+  $("#mapChipB").textContent = cp ? `Compare · ${cp[2]} ↔ ${cp[3]}` : meta ? meta.name : `${YB.lots.features.length} lots · ${YB.fundos.length} fundos`;
+  const ledes = {
+    flood: STATE.tier === "today" ? "In a typical year the river stays in its channel. Pick an El Niño tier to see where the water goes." : `Where the water goes: ${fmt.n(DD.sum(CROP_KEYS, (k) => YB.exposure.flood[STATE.tier][k]))} ha of lots sit in the ${TIER_NAME(STATE.tier).toLowerCase()} flood band, concentrated up-valley on avocado.`,
+    heat: `Where the heat lands: ${fmt.n(DD.sum(CROP_KEYS, (k) => YB.exposure.heat[STATE.tier][k]))} ha of lots cross their crop's stress line ${STATE.tier === "today" ? "on a typical extreme day" : `under ${aTier(STATE.tier)} El Niño`}; heat builds down-valley toward the coast.`,
+    cold: "No reconstructed night in twenty years comes within 8 °C of a frost line. Cold is not a risk on this ground.",
+    suit: suitCrop() === "blueberry" ? "Blueberry is potted: the pot engineers out soil and terrain, and the climate read is 98." : `${C[suitCrop()].name}: climate ${C[suitCrop()].suit.climate}, terrain ${C[suitCrop()].suit.terrain}, soil ${C[suitCrop()].suit.soil} → ${C[suitCrop()].suit.soil_managed} once pH is amended. The gap is what management is worth.`,
+    none: `${YB.lots.features.length} lots, ${YB.fundos.length} fundos, ${fmt.n(PLANTED)} productive hectares on the floor of the Zaña valley.`,
+  };
+  $("#mapLede").textContent = ledes[STATE.layer];
+}
+$("#lyrList").addEventListener("click", (e) => { const b = e.target.closest("[data-value]"); if (!b) return; STATE.layer = b.dataset.value; if (!comparePair()) STATE.compare = false; renderMap(); syncHash(); });
+$("#fundList").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) selectFundo(b.dataset.f, true); });
+$("#opacity").addEventListener("input", (e) => { STATE.opacity = +e.target.value; paintOverlay(); });
+$("#cmpSwitch").addEventListener("click", () => { STATE.compare = !STATE.compare; renderMap(); });
+
+// ---------------------------------------------------------------- valley map: MapLibre (live) or static fallback
+const HAS_GL = !!window.maplibregl && (() => { try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; } })();
+const STYLE = {
+  version: 8,
+  sources: {
+    sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 18, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" },
+    dem: { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 14, encoding: "terrarium", attribution: "Terrain: Mapzen · AWS Open Data" },
+  },
+  layers: [{ id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": -0.15 } }],
+};
+const CORNERS = [[W, N], [E, N], [E, S], [W, S]];
+let map = null, map2 = null, hovered = null, syncing = false, swipeX = 0.5;
+const allMarkers = () => [map, map2].flatMap((m) => (m && m._markers) || []);
+function cropMatch() { return ["match", ["get", "crop"], ...CROP_KEYS.flatMap((k) => [k, cropHex(k)]), "#888"]; }
+function setupMap(m, overlayId) {
+  m.addSource("overlay", { type: "image", url: (YB_LAYERS[overlayId] || YB_LAYERS["heat-today"]).url, coordinates: CORNERS });
+  m.addLayer({ id: "overlay", type: "raster", source: "overlay", paint: { "raster-opacity": STATE.opacity / 100, "raster-fade-duration": 0, "raster-resampling": "linear" }, layout: { visibility: overlayId ? "visible" : "none" } });
+  m.addSource("lots", { type: "geojson", data: YB.lots });
+  m.addLayer({ id: "lots-fill", type: "fill", source: "lots", paint: { "fill-color": cropMatch(), "fill-opacity": 0.14 } });
+  m.addLayer({ id: "lots-line", type: "line", source: "lots", paint: { "line-color": cropMatch(), "line-width": 2 } });
+  m.addLayer({ id: "lots-sel", type: "line", source: "lots", paint: { "line-color": "#ffffff", "line-width": 3.5 }, filter: ["==", ["get", "fkey"], ""] });
+  styleLots(m);
+  addMarkers(m);
+  syncMarkers();
+}
+function styleLots(m) {
+  if (!m || !m.getLayer("lots-fill")) return;
+  const c = STATE.crop, onCrop = c === "all" ? true : ["==", ["get", "crop"], c];
+  m.setPaintProperty("lots-fill", "fill-color", cropMatch());
+  m.setPaintProperty("lots-line", "line-color", cropMatch());
+  m.setPaintProperty("lots-fill", "fill-opacity", ["case", ["boolean", ["feature-state", "hover"], false], 0.45, ["case", onCrop, STATE.layer === "none" ? 0.3 : 0.12, 0.02]]);
+  m.setPaintProperty("lots-line", "line-opacity", ["case", onCrop, 1, 0.25]);
+  m.setFilter("lots-sel", ["==", ["get", "fkey"], STATE.fundo || ""]);
+}
+function addMarkers(m) {
+  (m._markers || []).forEach((mk) => mk.remove()); m._markers = [];
+  YB.fundos.forEach((f) => {
+    const el = document.createElement("button");
+    el.type = "button"; el.className = "fmk" + (STATE.fundo === f.key ? " on" : ""); el.dataset.f = f.key;
+    const dot = document.createElement("i"); dot.style.background = cropHex(f.crop);
+    el.append(dot, document.createTextNode(f.name));
+    el.addEventListener("click", (e) => { e.stopPropagation(); selectFundo(f.key, false); });
+    const [x, y] = FUNDO_XY[f.key];
+    m._markers.push(new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -6] }).setLngLat([x, y]).addTo(m));
+  });
+}
+function syncMarkers() {
+  allMarkers().forEach((mk) => { const el = mk.getElement(), f = fundoByKey[el.dataset.f]; el.classList.toggle("on", STATE.fundo === f.key); el.classList.toggle("dim", STATE.crop !== "all" && STATE.crop !== f.crop); $("i", el).style.background = cropHex(f.crop); });
+}
+function paintOverlay() {
+  const id = LAYERS[STATE.layer].id(), pair = STATE.compare ? comparePair() : null;
+  const left = pair ? pair[0] : id, right = pair ? pair[1] : null;
+  [[map, left], [map2, right]].forEach(([m, lid]) => {
+    if (!m || !m.getSource("overlay")) return;
+    if (lid && YB_LAYERS[lid] && m._yb !== lid) { m.getSource("overlay").updateImage({ url: YB_LAYERS[lid].url, coordinates: CORNERS }); m._yb = lid; }
+    m.setLayoutProperty("overlay", "visibility", lid ? "visible" : "none");
+    m.setPaintProperty("overlay", "raster-opacity", STATE.opacity / 100);
+  });
+  if (!map && !HAS_GL) staticMap("#gl", { overlay: id, opacity: STATE.opacity / 100 });
+}
+function initMap() {
+  if (map || !HAS_GL) { if (!HAS_GL && !$("#gl .offline")) { staticMap("#gl", { overlay: LAYERS[STATE.layer].id(), opacity: STATE.opacity / 100 }); $("#mapbox").insertAdjacentHTML("beforeend", `<span class="chip offline" style="position:absolute;right:14px;top:14px;z-index:4">Offline view · static imagery</span>`); $(".tools", $("#mapbox")).style.display = "none"; } return; }
+  map = new maplibregl.Map({ container: "gl", style: STYLE, bounds: [LOT_BOX.slice(0, 2), LOT_BOX.slice(2)], fitBoundsOptions: { padding: 50 }, maxPitch: 75, attributionControl: { compact: true, customAttribution: "Analysis layers: Refinagro" } });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  map.on("load", () => {
+    const id = LAYERS[STATE.layer].id(); map._yb = id;
+    setupMap(map, id);
+    map.on("mousemove", "lots-fill", (e) => {
+      const f = e.features[0]; if (!f) return;
+      if (hovered !== null && hovered !== f.id) map.setFeatureState({ source: "lots", id: hovered }, { hover: false });
+      hovered = f.id; map.setFeatureState({ source: "lots", id: hovered }, { hover: true });
+      map.getCanvas().style.cursor = "pointer";
+      const fd = fundoByKey[f.properties.fkey], v = fundoValue(fd), p = f.properties;
+      const tip = fundoTip(fd); tip.title = `${p.lot} · ${fd.name}`;
+      tip.rows.unshift({ name: "Lot", value: `${fmt.n(p.ha, 1)} ha · ${C[p.crop].name}` });
+      if (["suit", "cold"].includes(STATE.layer) && v[1] !== "—") tip.rows.push({ name: LAYERS[STATE.layer].name, value: v[1] });
+      DD.tip.show(e.originalEvent.clientX, e.originalEvent.clientY, tip);
+    });
+    map.on("mouseleave", "lots-fill", () => { if (hovered !== null) map.setFeatureState({ source: "lots", id: hovered }, { hover: false }); hovered = null; map.getCanvas().style.cursor = ""; DD.tip.hide(); });
+    map.on("click", "lots-fill", (e) => { DD.tip.hide(); selectFundo(e.features[0].properties.fkey, false); });
+    renderMap();
+  });
+  map.on("move", () => { if (!map2 || syncing) return; syncing = true; map2.jumpTo({ center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() }); syncing = false; });
+}
+function setCompare(on) {
+  const pair = comparePair();
+  if (on && pair && map && !map2) {
+    const el = document.createElement("div"); el.className = "gl2"; el.id = "gl2"; $("#mapbox").appendChild(el);
+    map2 = new maplibregl.Map({ container: el, style: STYLE, center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), maxPitch: 75, attributionControl: false });
+    map2.on("load", () => { map2._yb = pair[1]; setupMap(map2, pair[1]); if (STATE.view3d) map2.setTerrain({ source: "dem", exaggeration: 1.6 }); paintOverlay(); });
+    map2.on("move", () => { if (syncing) return; syncing = true; map.jumpTo({ center: map2.getCenter(), zoom: map2.getZoom(), bearing: map2.getBearing(), pitch: map2.getPitch() }); syncing = false; });
+    map2.on("click", "lots-fill", (e) => selectFundo(e.features[0].properties.fkey, false));
+    const sw = document.createElement("div"); sw.className = "swipe"; sw.id = "swipe";
+    sw.innerHTML = `<span class="side-l"></span><span class="side-r"></span><div class="knob" role="slider" aria-label="Compare divider" aria-valuemin="0" aria-valuemax="100" tabindex="0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></div>`;
+    $("#mapbox").appendChild(sw);
+    const knob = $(".knob", sw);
+    const setX = (x) => { swipeX = Math.max(0.05, Math.min(0.95, x)); const w = $("#mapbox").clientWidth; sw.style.left = swipeX * 100 + "%"; el.style.clipPath = `inset(0 0 0 ${swipeX * w}px)`; knob.setAttribute("aria-valuenow", Math.round(swipeX * 100)); };
+    knob.addEventListener("pointerdown", (e) => { knob.setPointerCapture(e.pointerId); const mv = (ev) => { const r = $("#mapbox").getBoundingClientRect(); setX((ev.clientX - r.left) / r.width); }; knob.addEventListener("pointermove", mv); knob.addEventListener("pointerup", () => knob.removeEventListener("pointermove", mv), { once: true }); });
+    knob.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") setX(swipeX - 0.05); if (e.key === "ArrowRight") setX(swipeX + 0.05); });
+    setX(swipeX); window.addEventListener("resize", () => map2 && setX(swipeX));
+  }
+  if (!on && map2) { map2.remove(); map2 = null; $("#gl2")?.remove(); $("#swipe")?.remove(); }
+  if (map2 && pair) { $("#swipe .side-l").textContent = pair[2]; $("#swipe .side-r").textContent = pair[3]; }
+}
+function renderMap() {
+  renderRail();
+  if (!map && HAS_GL) return;
+  setCompare(STATE.compare && !!comparePair());
+  paintOverlay();
+  styleLots(map); styleLots(map2);
+  syncMarkers();
+}
+$("#btn3d").addEventListener("click", (e) => {
+  if (!map) return;
+  STATE.view3d = !STATE.view3d; e.currentTarget.classList.toggle("on", STATE.view3d); e.currentTarget.setAttribute("aria-pressed", STATE.view3d);
+  [map, map2].forEach((m) => m && m.setTerrain(STATE.view3d ? { source: "dem", exaggeration: 1.6 } : null));
+  map.easeTo(STATE.view3d ? { pitch: 62, bearing: -28, duration: 1400 } : { pitch: 0, bearing: 0, duration: 900 });
+});
+$("#btnFit").addEventListener("click", () => map && map.fitBounds([LOT_BOX.slice(0, 2), LOT_BOX.slice(2)], { padding: 50, pitch: map.getPitch(), bearing: map.getBearing(), duration: 900 }));
+document.addEventListener("dd:theme", () => { styleLots(map); styleLots(map2); syncMarkers(); });
+
+// ---------------------------------------------------------------- fundo profile (drawer)
+function selectFundo(key, fly) {
+  STATE.fundo = key;
+  if (STATE.route !== "map") { location.hash = `#map/layer=${STATE.layer}&fundo=${key}`; return; }
+  renderMap(); syncHash();
+  if (map && fly) { const [x, y] = FUNDO_XY[key]; map.flyTo({ center: [x, y], zoom: Math.max(map.getZoom(), 13.2), duration: 1100 }); }
+  openFundo(fundoByKey[key]);
+}
+function openFundo(f) {
+  const c = C[f.crop], tier = STATE.tier, lots = YB.lots.features.filter((l) => l.properties.fkey === f.key).map((l) => l.properties);
+  const h = heatOf(f, tier), gap = f.polygon_ha - f.productive_ha;
+  const rowT = (k, v, ref) => `<span class="k">${k}</span><span class="v st ${v >= ref ? "bad" : v >= ref - 0.5 ? "warn" : "ok"}">${fmt.n(v, 1)} °C</span><span class="m">${v >= ref ? "past" : `${fmt.n(ref - v, 1)} below`} the ${ref} °C line</span>`;
+  const body = DD.drawer.open({
+    head: `<div class="row"><span class="dot" style="background:var(--${c.color})"></span><h2>${esc(f.name)}</h2><span class="tag na plain">${c.name}</span></div><div class="small muted" style="margin-top:4px">${f.lots} lot${f.lots > 1 ? "s" : ""} · ${fmt.n(f.productive_ha, 1)} productive ha · ${esc(titleCase(f.variety || c.variety))}</div>`,
+    body: `
+      <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="kpi"><span class="kpi-label">Productive</span><b class="kpi-value" style="font-size:24px">${fmt.n(f.productive_ha)}</b><span class="kpi-meta">of ${fmt.n(f.polygon_ha)} ha polygon · gap ${fmt.n(gap)} ha</span></div>
+        <div class="kpi ${heatTone(h, f.crop)}"><span class="kpi-label">${tier === "today" ? "Typical extreme day" : "Extreme day · " + TIER_NAME(tier).toLowerCase()}</span><b class="kpi-value" style="font-size:24px">${fmt.n(h, 1)} °C</b><span class="kpi-meta">stress line ${c.stress} °C · ${c.stress_label}</span></div>
+        <div class="kpi ${tier === "today" ? "" : floodTone(f.flood[tier])}"><span class="kpi-label">Flood-exposed · ${tier === "today" ? "extraordinary" : TIER_NAME(tier).toLowerCase()}</span><b class="kpi-value" style="font-size:24px">${fmt.n(f.flood[tier === "today" ? "extraordinary" : tier])} %</b><span class="kpi-meta">median ${fmt.n(f.flood.hanc_p50_m, 1)} m above channel</span></div>
+      </div>
+      ${f.note ? `<div class="callout warn"><span class="lbl">ON THE VISIT</span><div>${esc(f.note)}</div></div>` : ""}
+      <div><span class="lbl">THERMAL STRUCTURE · 2006–2025, 30 m</span><div class="kvx" style="margin-top:10px">
+        ${rowT("Typical extreme day · p98", f.tmax.p98, c.stress)}${rowT("1-in-10-year day · p99", f.tmax.p99, c.stress)}${rowT("1-in-20-year day · p99.5", f.tmax.p995, c.stress)}${rowT("Hottest day on record", f.tmax.absmax, c.stress)}
+        <span class="k">Coldest night on record</span><span class="v st ok">${fmt.n(f.tmin.absmin, 1)} °C</span><span class="m">${fmt.n(f.tmin.absmin - c.frost, 1)} °C above the ${c.frost} °C frost line</span>
+      </div></div>
+      <div><span class="lbl">FLOOD EXPOSURE BY EL NIÑO TIER</span><div class="stack tight" style="margin-top:10px">
+        ${Object.entries(T).map(([k, t]) => `<div class="spread small"><span>${t.name} · p = ${t.p} % · ground &lt; ${t.stage} m</span><b class="num">${fmt.n(f.flood[k])} %</b></div><div class="meter"><i class="${TIER_TONE[k] === "na" ? "" : TIER_TONE[k]}" style="width:${f.flood[k]}%"></i></div>`).join("")}
+      </div></div>
+      <div><span class="lbl">SUITABILITY · SOIL READ, IRRIGATED ◆</span><div class="spread" style="margin-top:8px"><span class="small muted">${f.crop === "blueberry" ? "Potted: soil and terrain excluded" : "Fundo mean at 250 m; the pH-amended read lifts the crop to " + c.suit.soil_managed}</span><b class="st ${f.suit >= 80 ? "ok" : f.suit >= 50 ? "warn" : "bad"}" style="font-size:20px">${fmt.n(f.suit)}</b></div></div>
+      <div><span class="lbl">LOTS</span><div class="tw" style="margin-top:6px"><table><thead><tr><th>Lot</th><th class="r">Polygon ha</th><th>Density (plants/ha)</th></tr></thead><tbody>${lots.map((l) => `<tr><td><b>${esc(l.lot)}</b></td><td class="r num">${fmt.n(l.ha, 1)}</td><td class="mono">${esc(l.density || "—")}</td></tr>`).join("")}</tbody></table></div></div>
+      <div class="row"><button type="button" class="btn sm" data-layer="heat">Show heat</button><button type="button" class="btn sm" data-layer="flood">Show flood</button><button type="button" class="btn sm" data-copy>Copy link</button></div>`,
+  });
+  $$("[data-layer]", body).forEach((b) => b.addEventListener("click", () => { STATE.layer = b.dataset.layer; renderMap(); syncHash(); }));
+  $("[data-copy]", body).addEventListener("click", () => { try { navigator.clipboard.writeText(location.href); DD.toast("Link to " + f.name + " copied"); } catch { DD.toast("Copy not available here", "warn"); } });
+}
+
+// ---------------------------------------------------------------- El Niño
+const EN = YB.enfen;
+const hotLabels = [...CL.years, ...CL.proj.years];
+const bandsFor = (labels) => SEASON_BANDS.map(([a, b, l]) => ({ from: labels.indexOf(a), to: labels.indexOf(b), label: l })).filter((x) => x.from > -1);
+function renderNino() {
+  const crop = STATE.crop, ck = crop === "all" ? null : crop, tier = STATE.tier, line = stressLine();
+  $("#nino-alert").innerHTML = `<div class="spread" style="flex-wrap:wrap"><span><span class="lbl" style="color:var(--bad-t)">${esc(EN.status.toUpperCase())} IN FORCE</span><div><b>${ODDS} % probability of a strong or extraordinary coastal El Niño this summer.</b> ${esc(EN.comunicado)}, ${esc(EN.date)}. Next communiqué ${esc(EN.next)}: re-check before any committee decision.</div></span><a class="btn sm" href="#map/layer=flood&tier=extraordinary">See it on the map</a></div>`;
+  const [b, a] = beforeAfter(stressDays()), s2324 = YB.seasons.find((x) => x.season === "2023-24");
+  $("#ninoLedeSub").textContent = `The canonical events never crossed a crop's stress line here. Stress days went from ${fmt.n(beforeAfter(CL.d32)[0], 1)} a year to ${fmt.n(beforeAfter(CL.d32)[1], 1)}, and the last El Niño season delivered ${s2324.d32}. The risk on this property is the warmer baseline, not the event on top of it.`;
+  const sc = YB.scenario2627;
+  $("#nino-kpis").innerHTML = `
+    <div class="kpi bad"><span class="kpi-label"><span class="dot bad"></span>Strong or extraordinary</span><b class="kpi-value">${ODDS} %</b><span class="kpi-meta">Dec 2026 – Mar 2027 · ENFEN Niño 1+2</span></div>
+    <div class="kpi warn"><span class="kpi-label"><span class="dot warn"></span>Hottest day of the year</span><b class="kpi-value">+${fmt.n(CL.hottest_trend.per_decade, 2)}<span class="muted" style="font-size:15px;font-weight:500"> °C / decade</span></b><span class="kpi-meta">2006–2025 · above 32 °C every year since ${sinceAbove}</span></div>
+    <div class="kpi warn"><span class="kpi-label"><span class="dot warn"></span>Stress days ≥ ${line} °C${ck ? " · " + C[ck].name.toLowerCase() : ""}</span><b class="kpi-value">${fmt.n(b, 1)} → ${fmt.n(a, 1)}</b><span class="kpi-meta">per year · 1981–2005 → 2006–2025</span></div>
+    <div class="kpi bad"><span class="kpi-label"><span class="dot bad"></span>Last El Niño season</span><b class="kpi-value">${s2324.d32} <span class="muted" style="font-size:15px;font-weight:500">days</span></b><span class="kpi-meta">≥ 32 °C in 2023-24 · ${s2324.d33} above 33 °C</span></div>
+    <div class="kpi warn"><span class="kpi-label"><span class="dot warn"></span>2026-27 rainfall</span><b class="kpi-value">${fmt.n(sc.annual_weighted)} <span class="muted" style="font-size:15px;font-weight:500">mm</span></b><span class="kpi-meta">×${fmt.n(sc.annual_weighted / YB.rainfall_mm, 1)} the ${YB.rainfall_mm} mm normal · ${fmt.n(sc.annual_extra)} mm if extraordinary</span></div>`;
+
+  DD.chart.bars("#ch-enfen", { labels: EN.monthly.map((r) => r[0]), stacked: true, height: 230, yFmt: (v) => v + " %", yMax: 100, title: "ENFEN monthly probability",
+    series: [{ name: "Extraordinary", color: "bad", values: EN.monthly.map((r) => r[1]) }, { name: "Strong", color: "warn", values: EN.monthly.map((r) => r[2]) }, { name: "Moderate", color: "na", values: EN.monthly.map((r) => r[3]) }, { name: "Weak / neutral", color: "dim", values: EN.monthly.map((r) => r[4]) }] });
+  const tone = { Extraordinary: "bad", Strong: "warn", Moderate: "dim", Weak: "dim", "La Niña / neutral": "dim" };
+  DD.chart.hbars("#ch-summer", EN.summer.slice().reverse().map(([l, p]) => ({ label: l + (tier !== "today" && T[tier].name === l ? " ◂" : ""), value: p, tone: tone[l] })), { fmt: (v) => v + " %", max: 100 });
+  $("#enfenStatements").innerHTML = EN.statements.map((x) => `<li>${esc(x)}</li>`).join("");
+
+  // hottest day / annual means
+  const refs = CROP_KEYS.slice().sort((x, y) => C[x].stress - C[y].stress).map((k) => ({ y: C[k].stress, label: `${C[k].stress} °C · ${C[k].name.toLowerCase()} line`, tone: ck === k ? "bad" : null, strong: ck === k }));
+  const trend = hotLabels.map((y) => (y >= CL.hottest_trend.from ? +(CL.hottest_trend.a + CL.hottest_trend.b * y).toFixed(2) : null));
+  const peaks = CL.hottest.map((v, i) => (v >= 32.7 ? i : -1)).filter((i) => i > -1);
+  if (STATE.hotTab === "hottest") {
+    $("#hotTitle").textContent = `The hottest day of the year gains +${fmt.n(CL.hottest_trend.per_decade, 2)} °C per decade, above 32 °C every year since ${sinceAbove}.`;
+    $("#hotDesc").textContent = "Hottest day recorded over the lots each year (ERA5-Land), with its 2006–2025 trend carried to 2040. Shaded: El Niño seasons. Dashed: each crop's stress line.";
+    DD.chart.line("#ch-hot", { labels: hotLabels, height: 300, zero: false, yMin: 29.5, yMax: 35, area: false, curve: "linear", yFmt: (v) => fmt.n(v, 1) + " °C", title: "Hottest day of the year",
+      series: [{ name: "Hottest day of the year", values: [...CL.hottest, ...CL.proj.years.map(() => null)], color: "ink", dots: peaks },
+               { name: `Trend 2006–2025 → 2040 (+${fmt.n(CL.hottest_trend.per_decade, 2)} °C/decade)`, values: trend, color: "dim", dash: true, noEnd: true }],
+      refs, bands: bandsFor(hotLabels) });
+  } else {
+    const tr = CL.trends;
+    $("#hotTitle").textContent = `Maxima warm fastest: +${fmt.n(tr.t2m_max.per_decade, 2)} °C per decade, against +${fmt.n(tr.t2m_mean.per_decade, 2)} for the mean and +${fmt.n(tr.t2m_min.per_decade, 2)} for the minima.`;
+    $("#hotDesc").textContent = "Annual means of daily maximum, mean and minimum over the lots, 1981–2025, with the 2026–2040 projection on the observed trend (dashed).";
+    const pad = CL.proj.years.map(() => null), padR = CL.years.map(() => null);
+    const join = (hist, proj) => [...padR.slice(0, -1), hist[hist.length - 1], ...proj];
+    DD.chart.line("#ch-hot", { labels: hotLabels, height: 300, zero: false, area: false, curve: "linear", yFmt: (v) => fmt.n(v, 1) + " °C", title: "Annual mean temperatures",
+      series: [{ name: `Mean of daily maxima · +${fmt.n(tr.t2m_max.per_decade, 2)} °C/decade`, color: "c4", values: [...CL.tmax, ...pad] },
+               { name: `Annual mean · +${fmt.n(tr.t2m_mean.per_decade, 2)} °C/decade`, color: "c7", values: [...CL.tmean, ...pad] },
+               { name: `Mean of daily minima · +${fmt.n(tr.t2m_min.per_decade, 2)} °C/decade`, color: "c5", values: [...CL.tmin, ...pad] },
+               { name: "Projection (max)", color: "c4", dash: true, noLegend: true, noEnd: true, values: join(CL.tmax, CL.proj.tmax) },
+               { name: "Projection (mean)", color: "c7", dash: true, noLegend: true, noEnd: true, values: join(CL.tmean, CL.proj.tmean) },
+               { name: "Projection (min)", color: "c5", dash: true, noLegend: true, noEnd: true, values: join(CL.tmin, CL.proj.tmin) }],
+      bands: bandsFor(hotLabels) });
+  }
+
+  // stress days
+  const [mb, ma] = beforeAfter(stressDays()), i05 = YI(2005), last = CL.years.length - 1;
+  const meanRefs = [{ y: mb, label: `${fmt.n(mb, 1)} / yr · 1981–2005`, from: 0, to: i05 }, { y: ma, label: `${fmt.n(ma, 1)} / yr · 2006–2025`, from: i05 + 1, to: last, tone: "bad" }];
+  $("#stressTitle").textContent = ck ? `Days ≥ ${line} °C, the ${C[ck].name.toLowerCase()} stress line` : `Stress days: ${fmt.n(mb, 1)} a year before 2006, ${fmt.n(ma, 1)} since`;
+  $("#stressDesc").textContent = ck ? `Days per year whose maximum reached ${line} °C (${C[ck].stress_label}). Pick "All" to see every crop line stacked.` : "Days per year whose maximum reached a crop line, stacked from the blueberry line (32 °C) up. Shaded: El Niño seasons.";
+  const series = ck ? [{ name: `Days ≥ ${line} °C`, color: "bad", values: stressDays() }]
+    : [{ name: "32–33 °C · blueberry line", color: "warn", values: CL.d32.map((v, i) => +(v - CL.d33[i]).toFixed(1)) }, { name: "≥ 33 °C · avocado & mandarin lines", color: "bad", values: CL.d33 }];
+  DD.chart.bars("#ch-stress", { labels: CL.years, stacked: !ck, height: 240, yFmt: (v) => fmt.n(v), title: "Stress days per year", series, refs: meanRefs, bands: bandsFor(CL.years) });
+
+  // rainfall
+  const floodYears = YB.ranking.filter((r) => r.mult >= 2).map((r) => +r.season.slice(0, 4) + 1);
+  const rl = [...CL.years, "26-27 ENFEN", "26-27 extraord."], rv = [...CL.precip.map((v) => Math.round(v)), sc.annual_weighted, sc.annual_extra];
+  $("#rainDesc").textContent = `Annual rainfall over the lots, 1981–2025. Red: flood seasons (rain above ×2 normal). Last two bars: the ENFEN-weighted 2026-27 scenario and the extraordinary composite. Dashed: the ${YB.rainfall_mm} mm 2006–2025 mean.`;
+  DD.chart.bars("#ch-rain", { labels: rl, height: 240, yFmt: (v) => fmt.n(v) + " mm", title: "Rainfall per year", xFmt: (l) => (typeof l === "number" ? l : l.split(" ")[0]),
+    series: [{ name: "Rainfall", values: rv }], tones: rl.map((l, i) => (i === rl.length - 2 ? "warn" : i === rl.length - 1 ? "bad" : floodYears.includes(l) ? "bad" : "dim")),
+    refs: [{ y: YB.rainfall_mm, label: `${YB.rainfall_mm} mm mean` }] });
+
+  // seasons
+  seasonTable.update(YB.seasons.map((x) => ({ ...x, mult: rankBySeason[x.season]?.mult, t_anom: rankBySeason[x.season]?.t_anom })));
+  const topN = YB.ranking.slice(0, 10);
+  DD.chart.hbars("#ch-rank", topN.map((r) => ({ label: `${r.season} · ${regimeOf(r.mult)[1]}`, value: r.index, tone: regimeOf(r.mult)[0] === "na" ? "dim" : regimeOf(r.mult)[0] })), { fmt: (v) => fmt.n(v, 1) });
+
+  const heatTier = tier === "today" ? "strong" : tier;
+  $("#regimes").innerHTML = `
+    <div class="card regime warn ${tier === "extraordinary" ? "dimmed" : ""}"><span class="lbl" style="color:var(--warn-t)">STRONG · HEAT &amp; DRY · p = ${T.strong.p} %</span><h3>Yield loss by heat</h3><p>Moderate and strong events run hot and mostly dry here (2015-16, 2023-24). Extreme days climb past each crop's stress line: fruit set, sunburn, calibre. Under a strong event ${fmt.n(DD.sum(CROP_KEYS, (k) => YB.exposure.heat.strong[k]))} ha of lots cross their line.</p><a class="btn sm" href="#map/layer=heat&tier=${heatTier}">Where the heat lands →</a></div>
+    <div class="card regime bad ${tier === "strong" || tier === "moderate" ? "dimmed" : ""}"><span class="lbl" style="color:var(--bad-t)">EXTRAORDINARY · FLOOD · p = ${T.extraordinary.p} %</span><h3>Yield and inventory loss by water</h3><p>Only extraordinary events flood, and then massively: rain at ×3–10 of normal, Jan–Apr (1997-98, 1982-83). Waterlogged roots, washed-out amendments, damaged infrastructure. ${fmt.n(DD.sum(CROP_KEYS, (k) => YB.exposure.flood.extraordinary[k]))} ha of lots sit in the extraordinary band.</p><a class="btn sm" href="#map/layer=flood&tier=extraordinary">Where the water goes →</a></div>`;
+}
+const seasonTable = DD.table("#t-seasons", {
+  rows: [], rowKey: "season",
+  cols: [
+    { key: "season", label: "Season", render: (r) => `<b>${r.season}</b>` },
+    { key: "hottest", label: "Hottest day", align: "r", num: true, sort: true, render: (r) => `<span class="${r.hottest >= 33 ? "st bad" : r.hottest >= 32 ? "st warn" : ""}">${fmt.n(r.hottest, 1)} °C</span>` },
+    { key: "d32", label: "Days ≥ 32 °C", align: "r", num: true, sort: true, render: (r) => `<span class="${r.d32 >= 10 ? "st bad" : ""}">${r.d32}</span>` },
+    { key: "d33", label: "≥ 33 °C", align: "r", num: true, sort: true },
+    { key: "rain", label: "Rain Sep–Apr", align: "r", num: true, sort: true, render: (r) => `${fmt.n(r.rain)} mm` },
+    { key: "mult", label: "× normal", align: "r", num: true, sort: true, render: (r) => (r.mult == null ? "—" : `×${fmt.n(r.mult, 1)}`) },
+    { key: "regime", label: "Regime", render: (r) => { const g = regimeOf(r.mult ?? 1); return `<span class="tag ${g[0]}">${g[1]}</span>`; } },
+  ],
+});
+DD.select("#hotTabs", (v) => { STATE.hotTab = v; renderNino(); });
+
+// ---------------------------------------------------------------- phase 2 · shared components (promotion candidates)
+const focusCrop = () => (STATE.crop === "all" ? "avocado" : STATE.crop);
+const suitTone = (v) => (v == null ? "na" : v >= 80 ? "ok" : v >= 50 ? "warn" : "bad");
+const TONE_VAR = { ok: "var(--ok)", warn: "var(--warn)", bad: "var(--bad)", na: "var(--na)" };
+const pct0 = (v) => fmt.n(v) + " %";
+const dial = (value, to, label, sub) => DD.dial({ value, to, label, sub });
+function swipeStatic(el, left, right, labels, crop) {
+  el = typeof el === "string" ? $(el) : el;
+  el.innerHTML = `<div class="layer"></div>${right ? '<div class="layer"></div>' : ""}`;
+  const [L, R] = $$(":scope > .layer", el);
+  staticMap(L, { overlay: left, opacity: 0.82, crop });
+  if (right) { staticMap(R, { overlay: right, opacity: 0.82, crop }); DD.swipe(el, { labels }); }
+}
+const bandLabel = (fmin, fmax, u = "°C") => `${fmt.n(fmin, 1)}–${fmt.n(fmax, 1)} ${u}`;
+
+// ---------------------------------------------------------------- suitability
+const FMETA = YB.factorMeta, FAC = YB.factors;
+const shortF = (m) => m.label.split(" · ").pop();
+const capF = (x) => (x === "pH" ? x : x.charAt(0).toUpperCase() + x.slice(1));
+const lowF = (x) => (x === "pH" ? x : x.toLowerCase());
+const excludedGroup = (ck, g) => ck === "blueberry" && g !== "climate";
+function bindingOf(ck, skip = []) {
+  const vals = FMETA.filter((m) => !m.discounted && !excludedGroup(ck, m.group) && !skip.includes(m.id) && FAC[ck][m.id] != null).map((m) => [m, FAC[ck][m.id]]).sort((a, b) => a[1] - b[1]);
+  return vals.length && vals[0][1] < 99.5 ? { meta: vals[0][0], value: vals[0][1] } : null;
+}
+function renderSuit() {
+  const ck = STATE.crop === "all" ? null : STATE.crop, fc = focusCrop(), c = C[fc], su = c.suit;
+  const climVals = CROP_KEYS.map((k) => C[k].suit.climate), terr = CROP_KEYS.map((k) => C[k].suit.terrain).filter((v) => v != null);
+  if (!ck) {
+    $("#suitLede").textContent = `Climate scores ${Math.min(...climVals)}–${Math.max(...climVals)} and terrain ${Math.min(...terr)}–${Math.max(...terr)} on all three crops. Soil chemistry is the binding constraint, and it isn't visible from orbit.`;
+    $("#suitLedeSub").textContent = "One 0–100 index per crop, governed by Liebig's law of the minimum: the score at each pixel is set by the most restrictive factor, not an average. A site with perfect climate and hostile soil scores like its soil. Pick a crop to read it.";
+  } else if (su.soil == null) {
+    $("#suitLede").textContent = `${c.name} is potted: climate ${su.climate}, flat across every lot. Soil and terrain are engineered out by construction.`;
+    $("#suitLedeSub").textContent = "The pot supplies its own root zone, so the score is the climate read. What the visit confirms is the engineering.";
+  } else {
+    const b1 = bindingOf(fc), b2 = bindingOf(fc, [b1.meta.id]);
+    $("#suitLede").textContent = `${c.name}: climate ${su.climate} and terrain ${su.terrain} sit near the ceiling. ${capF(shortF(b1.meta))} caps the soil at ${su.soil}; ${su.soil_managed} once pH is amended, where ${lowF(shortF(b2.meta))} binds. The ${su.soil_managed - su.soil}-point gap is what management is worth.`;
+    $("#suitLedeSub").textContent = "Two parallel reads at ~250 m: the unmanaged baseline (soil read) and the managed state with the pH factor non-limiting (pH amended). Drag the divider on the map.";
+  }
+  $("#suitCrops").innerHTML = CROP_KEYS.map((k) => {
+    const x = C[k].suit, b = bindingOf(k), planted = DD.sum(YB.fundos.filter((f) => f.crop === k), (f) => f.productive_ha);
+    return `<button type="button" class="card crop-card ${fc === k && ck ? "on" : ""}" data-crop="${k}"><div class="top"><span class="dot" style="background:var(--${C[k].color})"></span><h3>${C[k].name}</h3><span>${fmt.n(planted)} ha · ${esc(C[k].variety.split(" · ")[0])}</span></div>
+      <div class="dials">${dial(x.climate, x.climate2040, "Climate", `→ ${x.climate2040} in 2040`)}${dial(x.terrain, null, "Terrain", x.terrain == null ? "potted" : "slope")}${dial(x.soil, x.soil_managed, "Soil ◆", x.soil == null ? "potted" : `→ ${x.soil_managed} pH amended`)}</div>
+      <div class="spread small"><span class="muted">Binding factor</span>${b ? `<span class="tag ${suitTone(b.value)}">${esc(capF(shortF(b.meta)))} · ${fmt.n(b.value)}</span>` : '<span class="tag ok">none · potted</span>'}</div></button>`;
+  }).join("");
+  $$("#suitCrops [data-crop]").forEach((b) => b.addEventListener("click", () => cropApi.set(b.dataset.crop)));
+
+  if (su.soil == null) {
+    $("#suitMapTitle").textContent = `${c.name} · climate read ${su.climate} (potted)`;
+    $("#suitMapDesc").textContent = "Climate read at ~250 m; soil and terrain excluded by construction. Blueberry lots highlighted.";
+    swipeStatic("#suitSwipe", `suit-${fc}-climate`, null, [], fc);
+  } else {
+    $("#suitMapTitle").textContent = `${c.name} · soil read ${su.soil} ↔ pH amended ${su.soil_managed}${ck ? "" : " (pick a crop above)"}`;
+    $("#suitMapDesc").textContent = `Suitability 0–100 over the whole valley, ${c.name.toLowerCase()} lots highlighted. Red is the constraint; green is what amendment unlocks.`;
+    swipeStatic("#suitSwipe", `suit-${fc}-soil`, `suit-${fc}-ph`, [`Soil read · ${su.soil}`, `pH amended · ${su.soil_managed}`], fc);
+  }
+  $("#suitMapLink").href = `#map/layer=suit${ck ? "&crop=" + ck : ""}`;
+
+  $("#factorTitle").textContent = `Law of the minimum · ${c.name}`;
+  const b1 = bindingOf(fc);
+  $("#factorBars").innerHTML = ["climate", "terrain", "soil"].map((g) => `<div class="lbl grp">${g.toUpperCase()}${g === "soil" ? " ◆" : ""}</div><div data-g="${g}"></div>`).join("");
+  ["climate", "terrain", "soil"].forEach((g) => {
+    const el = $(`#factorBars [data-g="${g}"]`);
+    if (excludedGroup(fc, g)) { el.innerHTML = `<div class="small muted">Excluded: the pot supplies its own root zone.</div>`; return; }
+    DD.chart.hbars(el, FMETA.filter((m) => m.group === g && FAC[fc][m.id] != null).map((m) => {
+      const v = FAC[fc][m.id], bind = b1 && b1.meta.id === m.id;
+      return { label: capF(shortF(m)) + (bind ? " · binding" : m.discounted ? " · discounted" : ""), value: v, tone: v >= 80 || m.discounted ? "dim" : suitTone(v) };
+    }), { fmt: (v) => fmt.n(v), max: 100 });
+  });
+
+  const tx = YB.suitText[fc];
+  $("#suitText").innerHTML = [["WHAT TO FOCUS ON", tx.focus, "warn"], ["WHAT OUR MODELS SHOW", tx.models, ""], [`2040 SUITABILITY · CLIMATE ${su.climate} → ${su.climate2040}`, tx.y2040, "ok"]]
+    .map(([l, t, tone]) => `<div class="card"><span class="lbl" style="display:block;margin-bottom:8px">${esc(l)}${ck ? "" : ` · ${c.name.toUpperCase()}`}</span><p style="font-size:14px;color:var(--fg-2)">${esc(t)}</p></div>`).join("");
+
+  const groupsHtml = ["climate", "terrain", "soil"].map((g) => `<tr><td colspan="4" class="lbl" style="padding-top:12px">${g.toUpperCase()}${g === "soil" ? " ◆" : ""}</td></tr>` + FMETA.filter((m) => m.group === g).map((m) => `<tr><td>${esc(m.label)}</td>${CROP_KEYS.map((k) => {
+    if (excludedGroup(k, g)) return `<td class="c"><span class="cell na">excl.</span></td>`;
+    const v = FAC[k][m.id], b = bindingOf(k);
+    return `<td class="c"><span class="cell ${m.discounted && v < 80 ? "na" : v >= 80 ? "ok" : suitTone(v)} ${b && b.meta.id === m.id ? "bind" : ""}" ${m.discounted ? 'title="Discounted in the final model: WISE data artefact pending a field check"' : ""}>${fmt.n(v)}${m.discounted && v < 80 ? "*" : ""}</span></td>`;
+  }).join("")}</tr>`).join("")).join("");
+  $("#factorMatrix").innerHTML = `<div class="tw"><table class="fmatrix"><thead><tr><th>Factor</th>${CROP_KEYS.map((k) => `<th style="text-align:center"><span class="dot" style="background:var(--${C[k].color});margin-right:6px"></span>${C[k].name}</th>`).join("")}</tr></thead><tbody>${groupsHtml}</tbody></table></div>`;
+
+  const RAW = [["pH", "pH", (v) => fmt.n(v, 2), (v) => v >= 7.5], ["Sodicity · ESP", "sodicity", (v) => fmt.n(v, 1) + " %", (v) => v >= 6], ["Salinity · EC", "salinity", (v) => fmt.n(v, 2) + " dS/m", (v) => v >= 2],
+    ["Coarse fragments", "coarse_fragments", (v) => fmt.n(v, 1) + " %", () => false], ["Organic carbon", "soil_organic_carbon", (v) => fmt.n(v, 2) + " %", () => false],
+    ["Base saturation", "base_saturation", (v) => fmt.n(v, 0) + " %", () => false], ["Gypsum", "gypsum", (v) => fmt.n(v, 2) + " %", () => false]];
+  $("#soilRaw").innerHTML = `<div class="tw"><table><thead><tr><th>Measure</th>${CROP_KEYS.map((k) => `<th class="r ${ck === k ? "on" : ""}">${C[k].name}</th>`).join("")}</tr></thead><tbody>${RAW.map(([l, key, f, flag]) => `<tr><td>${l}</td>${CROP_KEYS.map((k) => { const v = YB.soilRaw[k][key]; return `<td class="r num"><span class="${flag(v) ? "st warn" : ""}">${f(v)}</span></td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------------------------------------------------------------- heat & frost
+const TH = YB.thermal;
+const heatEntry = (ck, id) => TH[ck].heat.find((h) => h.id === id);
+const bandClass = (lo, line) => (lo + 1 <= line ? "b-tol" : lo >= line + 2 ? "b-ext" : lo >= line + 1 ? "b-high" : "b-mild");
+function bandRow(ck, h, label, sub, on) {
+  const tot = DD.sum(h.bands, (b) => b[1]), line = C[ck].stress;
+  const segs = h.bands.map(([lo, ha]) => `<span class="${bandClass(lo, line)}" style="flex-grow:${ha}" data-t="${esc(`${lo}–${lo + 1} °C · ${fmt.n(ha)} ha · ${fmt.pct(ha / tot)}`)}">${ha / tot >= 0.12 ? `${lo}–${lo + 1} °C` : ""}</span>`).join("");
+  return `<div class="bandrow ${on ? "on" : ""}"><div class="bl"><b>${esc(label)}</b><span>${esc(sub)}</span></div><div class="bb">${segs}</div><div class="br st ${h.past_ha > 0 ? "bad" : "ok"}">${fmt.n(h.past_ha)} ha · ${pct0(h.past_pct)}</div></div>`;
+}
+function renderHeat() {
+  const ck = STATE.crop === "all" ? null : STATE.crop, tier = STATE.tier, fc = focusCrop();
+  const sid = tier, TN = TIER_NAME(tier).toLowerCase();
+  if (ck) {
+    const c = C[ck], t0 = heatEntry(ck, "today"), ts = heatEntry(ck, sid);
+    const first = t0.past_ha > 0 ? `${c.name} already lives on its ${c.stress} °C line: ${fmt.n(t0.past_ha)} ha (${pct0(t0.past_pct)}) cross it on a typical extreme day.` : `${c.name} sits below its ${c.stress} °C stress line in a typical year: extreme days span ${bandLabel(t0.min, t0.max)}.`;
+    const second = tier === "today" ? " Pick an El Niño tier to see the event." : ` ${aTier(tier).replace(/^a/, "A")} El Niño lifts them to ${bandLabel(ts.min, ts.max)}: ${fmt.n(ts.past_ha)} ha (${pct0(ts.past_pct)}) past the line.`;
+    $("#heatLede").textContent = first + second;
+    $("#heatLedeSub").textContent = `Stress line ${c.stress} °C (${c.stress_label}); severe from ${c.severe} °C. ${YB.tolerance[ck].heat_plant}.`;
+  } else {
+    $("#heatLede").textContent = "Heat is the operating variable for blueberry, a tail risk for avocado, and binary for mandarin. Frost is not a risk anywhere.";
+    $("#heatLedeSub").textContent = `Extreme days against each crop's own stress line (${CROP_KEYS.slice().sort((a, b) => C[a].stress - C[b].stress).map((k) => `${C[k].name.toLowerCase()} ${C[k].stress} °C`).join(", ")}), from the 30 m relief-downscaled reconstruction, 2006–2025. El Niño tiers add their analogs' Sep–Dec anomaly to the 1-in-10-year day.`;
+  }
+  const minCold = Math.min(...CROP_KEYS.map((k) => C[k].coldest - C[k].frost));
+  if (ck) {
+    const c = C[ck], ts = heatEntry(ck, sid), fs = YB.fundos.filter((f) => f.crop === ck).map((f) => [f, heatOf(f, tier)]).sort((a, b) => b[1] - a[1]);
+    $("#heatKpis").innerHTML = `
+      <div class="kpi"><span class="kpi-label">Stress line</span><b class="kpi-value">${c.stress} °C</b><span class="kpi-meta">${esc(c.stress_label)} · severe from ${c.severe} °C</span></div>
+      <div class="kpi ${ts.past_ha ? "bad" : "ok"}"><span class="kpi-label"><span class="dot ${ts.past_ha ? "bad" : "ok"}"></span>Past the line · ${esc(TN)}</span><b class="kpi-value">${fmt.n(ts.past_ha)} <span class="muted" style="font-size:15px;font-weight:500">ha</span></b><span class="kpi-meta">${pct0(ts.past_pct)} of the lots · extreme days ${bandLabel(ts.min, ts.max)}</span></div>
+      <div class="kpi ${heatTone(fs[0][1], ck)}"><span class="kpi-label">Warmest fundo</span><b class="kpi-value" style="font-size:24px">${esc(fs[0][0].name)}</b><span class="kpi-meta">${fmt.n(fs[0][1], 1)} °C on ${tier === "today" ? "a typical extreme day" : "the scenario day"}${fs.length > 1 ? ` · coolest ${esc(fs[fs.length - 1][0].name)} ${fmt.n(fs[fs.length - 1][1], 1)} °C` : ""}</span></div>
+      <div class="kpi ok"><span class="kpi-label"><span class="dot ok"></span>Coldest night in 20 years</span><b class="kpi-value">${fmt.n(c.coldest, 1)} °C</b><span class="kpi-meta">${fmt.n(c.coldest - c.frost, 1)} °C above the ${c.frost} °C frost line</span></div>`;
+  } else {
+    $("#heatKpis").innerHTML = CROP_KEYS.map((k) => { const h = heatEntry(k, sid); return `<button type="button" class="kpi ${h.past_ha ? "bad" : "ok"}" data-crop="${k}"><span class="kpi-label"><span class="dot" style="background:var(--${C[k].color})"></span>${C[k].name} · past ${C[k].stress} °C</span><b class="kpi-value">${fmt.n(h.past_ha)} <span class="muted" style="font-size:15px;font-weight:500">ha</span></b><span class="kpi-meta">${pct0(h.past_pct)} · ${tier === "today" ? "typical year" : TN + " El Niño"}</span></button>`; }).join("")
+      + `<div class="kpi ok"><span class="kpi-label"><span class="dot ok"></span>Frost margin</span><b class="kpi-value">≥ ${fmt.n(minCold, 1)} °C</b><span class="kpi-meta">coldest night vs frost line, every crop</span></div>`;
+    $$("#heatKpis [data-crop]").forEach((b) => b.addEventListener("click", () => cropApi.set(b.dataset.crop)));
+  }
+
+  $("#bandTitle").textContent = ck ? `${C[ck].name} · hectares by 1 °C band of extreme daily maximum` : "Every crop against its own line";
+  $("#bandDesc").textContent = ck ? `Each bar is the whole ${C[ck].name.toLowerCase()} area; the coloured share is ground whose extreme day crosses the ${C[ck].stress} °C line under that scenario. Highlighted: the scenario lens.` : `Each bar is one crop's whole area under ${tier === "today" ? "a typical year (p98)" : aTier(tier) + " El Niño"}; the coloured share crosses that crop's line. Pick a crop to see every scenario.`;
+  $("#bandLegend").innerHTML = [["b-tol", "In tolerance"], ["b-mild", "Line → +1 °C"], ["b-high", "+1 → +2 °C"], ["b-ext", "≥ +2 °C"]].map(([k, l]) => `<span><i class="${k}" style="border-radius:3px"></i>${l}</span>`).join("");
+  $("#bandRows").innerHTML = ck
+    ? TH[ck].heat.map((h) => { const [a, b] = h.label.split(" · "); return bandRow(ck, h, a, b + (h.id === "p99" ? " · no El Niño" : ""), h.id === sid); }).join("")
+    : CROP_KEYS.map((k) => bandRow(k, heatEntry(k, sid), C[k].name, `line ${C[k].stress} °C · ${heatEntry(k, sid).label.split(" · ")[1] || heatEntry(k, sid).label}`, false)).join("");
+  $$("#bandRows [data-t]").forEach((sp) => { sp.addEventListener("pointermove", (e) => DD.tip.show(e.clientX, e.clientY, { title: sp.dataset.t })); sp.addEventListener("pointerleave", DD.tip.hide); });
+
+  const right = tier === "today" ? null : `heat-${tier}`;
+  $("#heatMapDesc").textContent = right ? `Typical extreme day (p98) against ${aTier(tier)} El Niño (p99 + ${T[tier].dT} °C). ${ck ? C[ck].name + " lots highlighted." : "Drag the divider."}` : "Typical extreme day (p98), 30 m. Pick an El Niño tier to compare.";
+  swipeStatic("#heatSwipe", "heat-today", right, ["Typical year · p98", `${TIER_NAME(tier)} El Niño`], ck || "all");
+  $("#heatMapLink").href = `#map/layer=heat${ck ? "&crop=" + ck : ""}${tier !== "extraordinary" ? "&tier=" + tier : ""}`;
+
+  // frost thermometer
+  const lo = -6, hi = 16, X = (v) => ((v - lo) / (hi - lo)) * 100;
+  $("#frost").innerHTML = `<div class="thermo">${CROP_KEYS.map((k) => {
+    const c = C[k], p02 = TH[k].cold.find((x) => x.id === "p02"), dim = ck && ck !== k ? "dimmed" : "";
+    return `<div class="${dim}"><b>${c.name}</b><div class="small muted">frost ${c.frost} °C</div></div><div class="track ${dim}"><div class="bar"></div>
+      <span class="gap" style="left:${X(c.frost)}%;width:${X(c.coldest) - X(c.frost)}%"></span>
+      <span class="mk frost" style="left:${X(c.frost)}%">${c.frost}°<i></i></span>
+      <span class="mk" style="left:${X(c.coldest)}%">${fmt.n(c.coldest, 1)}°<i></i></span>
+      <span class="mk" style="left:${X((p02.min + p02.max) / 2)}%;color:var(--muted-fg)">p02 ${fmt.n(p02.min, 0)}–${fmt.n(p02.max, 0)}°<i style="background:var(--border-2);height:10px;margin-top:8px"></i></span></div>`;
+  }).join("")}<span></span><div class="scale">${[-6, -2, 2, 6, 10, 14].map((v) => `<span style="left:${X(v)}%">${v} °C</span>`).join("")}</div></div>
+  <div class="callout ok small" style="margin-top:12px"><span class="lbl">NO CROP CARRIES COLD RISK</span><div>No reconstructed night in twenty years comes within ${fmt.n(minCold, 0)} °C of a frost line. Valley floors can pool cold air that ERA5-Land misses; local station records are the validation item.</div></div>`;
+
+  renderDotPlot();
+
+  $("#tolerance").innerHTML = `<div class="tw"><table><thead><tr><th>Crop</th><th>Heat · yield loss</th><th>Heat · plant loss</th><th>Cold · yield loss</th><th>Cold · plant loss</th></tr></thead><tbody>${CROP_KEYS.map((k) => { const t = YB.tolerance[k]; return `<tr class="${ck === k ? "sel" : ""}"><td class="nowrap"><span class="dot" style="background:var(--${C[k].color});margin-right:8px"></span><b>${C[k].name}</b><div class="small muted">${esc(C[k].variety.split(" · ")[0])}</div></td><td class="small">${esc(t.heat_yield)}</td><td class="small">${esc(t.heat_plant)}</td><td class="small">${esc(t.cold_yield)}</td><td class="small">${esc(t.cold_plant)}</td></tr>`; }).join("")}</tbody></table></div>`;
+}
+function renderDotPlot() {
+  const el = $("#dotPlot"); if (!el || !el.clientWidth) return;
+  const ck = STATE.crop === "all" ? null : STATE.crop, tier = STATE.tier;
+  const rows = YB.fundos.filter((f) => !ck || f.crop === ck).sort((a, b) => b.tmax.p99 - a.tmax.p99);
+  const p98s = rows.map((f) => f.tmax.p98), spread = Math.max(...p98s) - Math.min(...p98s);
+  const hot = rows.reduce((a, b) => (b.tmax.p98 > a.tmax.p98 ? b : a)), cool = rows.reduce((a, b) => (b.tmax.p98 < a.tmax.p98 ? b : a));
+  $("#dotTitle").textContent = `${fmt.n(spread, 1)} °C separates the coolest fundo from the warmest`;
+  $("#dotDesc").textContent = `Typical extreme day by fundo: ${cool.name} coolest (${fmt.n(cool.tmax.p98, 1)} °C), ${hot.name} warmest (${fmt.n(hot.tmax.p98, 1)} °C). Placement guidance for heat-sensitive varieties. Diamond: ${tier === "today" ? "typical extreme day" : aTier(tier) + " El Niño day"} against the crop's line.`;
+  $("#dotLegend").innerHTML = `<span><i style="background:transparent;border:2px solid var(--fg);border-radius:50%"></i>p98 typical</span><span><i style="background:var(--fg);border-radius:50%"></i>p99 · 1-in-10</span><span><i style="background:var(--chart-dim);border-radius:50%"></i>record</span><span><i style="background:var(--bad);transform:rotate(45deg);border-radius:1px"></i>scenario</span>`;
+  const W = el.clientWidth, L = 160, R = 70, rh = 30, top = 8, H = top + rows.length * rh + 26, lo = 29.5, hi = 35.5;
+  const X = (v) => L + ((v - lo) / (hi - lo)) * (W - L - R);
+  let s = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Thermal structure by fundo">`;
+  for (let v = 30; v <= 35; v++) s += `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${top}" y2="${H - 22}" style="stroke:var(--chart-grid)"/><text class="axis" x="${X(v)}" y="${H - 6}" text-anchor="middle" style="fill:var(--muted-fg);font-size:11.5px">${v} °C</text>`;
+  rows.forEach((f, i) => {
+    const y = top + i * rh + rh / 2, c = C[f.crop], sc = heatOf(f, tier), tone = heatTone(sc, f.crop);
+    s += `<g class="drow" data-f="${f.key}" style="cursor:pointer"><rect x="0" y="${y - rh / 2}" width="${W}" height="${rh}" fill="transparent"/>`;
+    s += `<circle cx="10" cy="${y}" r="4.5" style="fill:var(--${c.color})"/><text x="22" y="${y + 4}" style="fill:var(--fg);font:600 13px var(--sans)">${esc(f.name)}</text>`;
+    s += `<line x1="${X(c.stress)}" x2="${X(c.stress)}" y1="${y - 11}" y2="${y + 11}" style="stroke:var(--${c.color})" stroke-width="2"/>`;
+    s += `<line x1="${X(f.tmax.p98)}" x2="${X(f.tmax.absmax)}" y1="${y}" y2="${y}" style="stroke:var(--chart-dim)" stroke-width="2"/>`;
+    s += `<circle cx="${X(f.tmax.absmax)}" cy="${y}" r="4" style="fill:var(--chart-dim)"/><circle cx="${X(f.tmax.p99)}" cy="${y}" r="4.5" style="fill:var(--fg);stroke:var(--card)" stroke-width="2"/><circle cx="${X(f.tmax.p98)}" cy="${y}" r="4.5" style="fill:var(--card);stroke:var(--fg)" stroke-width="2"/>`;
+    s += `<rect x="${X(sc) - 5}" y="${y - 5}" width="10" height="10" transform="rotate(45 ${X(sc)} ${y})" style="fill:${TONE_VAR[tone]};stroke:var(--card)" stroke-width="1.5"/>`;
+    s += `<text x="${W - 6}" y="${y + 4}" text-anchor="end" style="font:600 12px var(--sans);fill:var(--${tone}-t)">${fmt.n(sc, 1)} °C</text></g>`;
+  });
+  el.innerHTML = s + "</svg>";
+  $$(".drow", el).forEach((g) => {
+    const f = fundoByKey[g.dataset.f], c = C[f.crop];
+    g.addEventListener("pointermove", (e) => DD.tip.show(e.clientX, e.clientY, { title: `${f.name} · ${c.name} · line ${c.stress} °C`, rows: [["Typical extreme day · p98", f.tmax.p98], ["1-in-10-year day · p99", f.tmax.p99], ["1-in-20-year day · p99.5", f.tmax.p995], ["Hottest day on record", f.tmax.absmax], [tier === "today" ? "Scenario · typical" : `Scenario · ${TIER_NAME(tier).toLowerCase()}`, heatOf(f, tier)]].map(([n, v]) => ({ name: n, value: fmt.n(v, 1) + " °C" })) }));
+    g.addEventListener("pointerleave", DD.tip.hide);
+    g.addEventListener("click", () => { DD.tip.hide(); location.hash = `#map/layer=heat&fundo=${f.key}`; });
+  });
+}
+let _rz; window.addEventListener("resize", () => { clearTimeout(_rz); _rz = setTimeout(() => STATE.route === "heat" && renderDotPlot(), 150); });
+
+// ---------------------------------------------------------------- exposure
+const RK = YB.risk, TIER_LIST = Object.keys(T);
+const mid = (b) => (b[0] + b[1]) / 2;
+const bandTxt = (b) => (b[0] === 0 ? `< ${b[1]} %` : `${b[0]}–${b[1]} %`);
+const weighted = (fn) => DD.sum(TIER_LIST, (tk) => (T[tk].p / 100) * fn(tk));
+function renderExposure() {
+  const ck = STATE.crop === "all" ? null : STATE.crop, tier = STATE.tier, crops = ck ? [ck] : CROP_KEYS;
+  const lotBase = DD.sum(crops, (k) => C[k].risk_lot_ha);
+  const tot = (kind, tk) => DD.sum(crops, (k) => YB.exposure[kind][tk][k]);
+  $("#tierCards").innerHTML = TIER_LIST.map((tk) => { const t = T[tk], sig = RK.signature[tk]; return `<button type="button" class="card tier-card ${tk} ${tier === tk ? "on" : ""}" data-tier="${tk}"><span class="lbl">${t.name.toUpperCase()} EVENT</span><span class="p">${t.p} %</span><span class="sig"><b>${esc(sig[0])}</b> · ${esc(sig[1])}</span><span class="small muted">Flood ${fmt.n(tot("flood", tk))} ha · heat past the line ${fmt.n(tot("heat", tk))} ha${ck ? " · " + C[ck].name.toLowerCase() : ""}</span></button>`; }).join("");
+  $$("#tierCards [data-tier]").forEach((b) => b.addEventListener("click", () => tierApi.set(b.dataset.tier)));
+
+  const eYield = (k) => weighted((tk) => mid(RK.crops[k].yield[TIER_LIST.indexOf(tk)]));
+  const portfolioYield = DD.sum(crops, (k) => eYield(k) * C[k].risk_lot_ha) / lotBase;
+  const fl = YB.fundos.filter((f) => !ck || f.crop === ck).map((f) => [f, floodOf(f, tier), (floodOf(f, tier) / 100) * f.polygon_ha]).sort((a, b) => b[2] - a[2])[0];
+  $("#expKpis").innerHTML = `
+    <div class="kpi ${tier === "today" ? "ok" : "bad"}"><span class="kpi-label"><span class="dot ${tier === "today" ? "ok" : "bad"}"></span>Flood-exposed · ${esc(TIER_NAME(tier).toLowerCase())}</span><b class="kpi-value">${fmt.n(tot("flood", tier))} <span class="muted" style="font-size:15px;font-weight:500">ha</span></b><span class="kpi-meta">${fmt.pct(tot("flood", tier) / lotBase)} of ${fmt.n(lotBase)} ha of lots${tier === "today" ? " · no flood stage" : ""}</span></div>
+    <div class="kpi ${tot("heat", tier) ? "warn" : "ok"}"><span class="kpi-label"><span class="dot ${tot("heat", tier) ? "warn" : "ok"}"></span>Heat past the line · ${esc(TIER_NAME(tier).toLowerCase())}</span><b class="kpi-value">${fmt.n(tot("heat", tier))} <span class="muted" style="font-size:15px;font-weight:500">ha</span></b><span class="kpi-meta">${fmt.pct(tot("heat", tier) / lotBase)} of the lots</span></div>
+    <div class="kpi warn"><span class="kpi-label"><span class="dot warn"></span>Probability-weighted yield loss ◆</span><b class="kpi-value">${fmt.n(portfolioYield, 0)} %</b><span class="kpi-meta">derived: ENFEN tiers × indicative band midpoints${ck ? "" : " · area-weighted"}</span></div>
+    <div class="kpi ${fl && fl[1] >= 50 ? "bad" : ""}"><span class="kpi-label">Largest flood-exposed fundo</span><b class="kpi-value" style="font-size:24px">${fl && tier !== "today" ? esc(fl[0].name) : "—"}</b><span class="kpi-meta">${fl && tier !== "today" ? `${fmt.n(fl[2])} ha · ${fmt.n(fl[1])} % of its area · median ${fmt.n(fl[0].flood.hanc_p50_m, 1)} m above channel` : "no flood stage in a typical year"}</span></div>`;
+
+  const hc = ck || "all";
+  if (tier === "today") { staticMap("#expFloodMap", { overlay: null, crop: hc }); $("#expFloodMap").insertAdjacentHTML("beforeend", `<span class="note">No flood stage in a typical year</span>`); }
+  else staticMap("#expFloodMap", { overlay: `flood-${tier}`, opacity: 0.8, crop: hc });
+  staticMap("#expHeatMap", { overlay: `heat-${tier}`, opacity: 0.8, crop: hc });
+  $("#expFloodDesc").textContent = tier === "today" ? "Height above the Río Zaña channel; pick an El Niño tier." : `Ground < ${T[tier].stage} m above the Río Zaña channel under ${aTier(tier)} event: ${fmt.n(tot("flood", tier))} ha of lots.`;
+  $("#expHeatDesc").textContent = tier === "today" ? "Typical extreme day (p98), 30 m." : `1-in-10-year day + ${T[tier].dT} °C: ${fmt.n(tot("heat", tier))} ha of lots past their crop's line.`;
+  $("#expFloodLink").href = `#map/layer=flood${ck ? "&crop=" + ck : ""}${tier !== "extraordinary" ? "&tier=" + tier : ""}`;
+  $("#expHeatLink").href = `#map/layer=heat${ck ? "&crop=" + ck : ""}${tier !== "extraordinary" ? "&tier=" + tier : ""}`;
+
+  const head = `<tr><th></th>${TIER_LIST.map((tk) => `<th class="r ${tier === tk ? "on" : ""}">${T[tk].name}<div class="small muted" style="font-weight:400">p = ${T[tk].p} %</div></th>`).join("")}<th class="r">Weighted<div class="small muted" style="font-weight:400">Σ p × value</div></th></tr>`;
+  const sigRow = `<tr><td><b>Climate signature</b><div class="small muted">local analog composites</div></td>${TIER_LIST.map((tk) => `<td class="r ${tier === tk ? "on" : ""}"><b>${esc(RK.signature[tk][0])}</b><div class="small muted">${esc(RK.signature[tk][1])}</div></td>`).join("")}<td class="r muted">—</td></tr>`;
+  const cropRows = crops.map((k) => {
+    const c = C[k], r = RK.crops[k], base = c.risk_lot_ha;
+    const haCell = (kind, tk) => { const ha = YB.exposure[kind][tk][k]; return `<td class="r num ${tier === tk ? "on" : ""}"><b>${fmt.n(ha)} ha</b> <span class="muted">(${fmt.pct(ha / base)})</span></td>`; };
+    const bandCells = (key) => TIER_LIST.map((tk, i) => `<td class="r band ${tier === tk ? "on" : ""}"><span class="st ${TIER_TONE[tk] === "na" ? "" : TIER_TONE[tk]}">${bandTxt(r[key][i])}</span></td>`).join("");
+    return `<tr><td colspan="5" class="grp-h"><span class="row"><span class="dot" style="background:var(--${c.color})"></span><b>${c.name}</b><span class="muted small">${fmt.n(base)} ha of lots · ${esc(r.perils)}</span></span></td></tr>
+      <tr><td>Flood-exposed area<div class="small muted">ground &lt; 1.5 / 3 / 5 m above channel</div></td>${TIER_LIST.map((tk) => haCell("flood", tk)).join("")}<td class="r num">${fmt.n(weighted((tk) => YB.exposure.flood[tk][k]))} ha</td></tr>
+      <tr><td>Heat past the ${c.stress} °C line<div class="small muted">p99 + tier ΔT, Sep–Dec</div></td>${TIER_LIST.map((tk) => haCell("heat", tk)).join("")}<td class="r num">${fmt.n(weighted((tk) => YB.exposure.heat[tk][k]))} ha</td></tr>
+      <tr><td><i>Yield loss ◆</i><div class="small muted">% of campaign · indicative</div></td>${bandCells("yield")}<td class="r num"><b>${fmt.n(eYield(k), 0)} %</b></td></tr>
+      <tr><td><i>Inventory loss ◆</i><div class="small muted">${esc(r.inventory_note)} · replacement ${esc(r.replacement)}</div></td>${bandCells("inventory")}<td class="r num">${fmt.n(weighted((tk) => mid(r.inventory[TIER_LIST.indexOf(tk)])), 1)} %</td></tr>`;
+  }).join("");
+  $("#riskMatrix").innerHTML = `<div class="tw"><table class="rmatrix"><thead>${head}</thead><tbody>${sigRow}${cropRows}</tbody></table></div><div class="small muted" style="margin-top:10px">◆ Indicative bands: climate modelling to be calibrated with the responsAbility team after the site visit. Weighted column: ENFEN probabilities (16 / 40 / 43 %) times each tier's value; loss bands at their midpoint.</div>`;
+
+  // valley profile: coast → up-valley
+  const prof = YB.fundos.filter((f) => !ck || f.crop === ck).sort((a, b) => FUNDO_XY[a.key][0] - FUNDO_XY[b.key][0]);
+  const ftier = tier === "today" ? null : tier;
+  const gapF = prof.map((f) => [f, (ftier ? f.flood[ftier] : 0) - f.heat_share[tier]]).sort((a, b) => b[1] - a[1]);
+  $("#profileDesc").textContent = `Fundos ordered from the coast (top) to up-valley (bottom), under ${tier === "today" ? "a typical year" : aTier(tier) + " El Niño"}. The two perils don't coincide${ftier && gapF.length > 1 ? `: ${gapF[0][0].name} is the most flood-led, ${gapF[gapF.length - 1][0].name} the most heat-led` : ""}.`;
+  const mcell = (v, tone) => `<div class="m"><div class="meter"><i class="${tone}" style="width:${v}%"></i></div><b class="st ${v ? tone : "ok"}">${fmt.n(v)} %</b></div>`;
+  $("#valleyProfile").innerHTML = `<div class="profile"><span class="h">Fundo</span><span class="h">Flood-exposed</span><span class="h">Heat past the line</span>${prof.map((f) => `<button type="button" data-f="${f.key}"><span class="dot" style="background:var(--${C[f.crop].color})"></span><b>${esc(f.name)}</b></button>${mcell(ftier ? f.flood[ftier] : 0, "bad")}${mcell(f.heat_share[tier], "warn")}`).join("")}</div>`;
+  $$("#valleyProfile [data-f]").forEach((b) => b.addEventListener("click", () => { location.hash = `#map/layer=flood&fundo=${b.dataset.f}`; }));
+
+  const PERIL_TAG = { flood: ["bad", "flood"], heat: ["warn", "heat"], infrastructure: ["na", "infrastructure"] };
+  $("#walk").innerHTML = YB.walk.filter((w) => !ck || w.fundos.some((k) => fundoByKey[k].crop === ck)).map((w) => `<div class="walk-item"><span class="tag ${PERIL_TAG[w.peril][0]}">${PERIL_TAG[w.peril][1]}</span><div>${esc(w.text)}<div class="chips">${w.fundos.map((k) => `<button type="button" data-f="${k}">${esc(fundoByKey[k].name)}${ftier ? ` · ${fmt.n(fundoByKey[k].flood[ftier])} % flood` : ""}</button>`).join("")}</div></div></div>`).join("");
+  $$("#walk [data-f]").forEach((b) => b.addEventListener("click", () => { location.hash = `#map/layer=flood&fundo=${b.dataset.f}`; }));
+
+  $("#readings").innerHTML = crops.map((k) => { const r = RK.crops[k].reading; return `<div class="card"><span class="lbl" style="display:block;margin-bottom:8px">READING · ${C[k].name.toUpperCase()}</span><p style="font-size:14px;color:var(--fg-2)"><b style="color:var(--fg)">${esc(r[0])}</b> ${esc(r[1])}</p></div>`; }).join("");
+}
+
+// ---------------------------------------------------------------- underwriting
+const UW = YB.underwriting;
+const seasonsChrono = YB.ranking.slice().sort((a, b) => a.season.localeCompare(b.season));
+function trigIndex() {
+  const line = stressLine();
+  if (STATE.trig === "rain") return { id: "rain", labels: seasonsChrono.map((r) => r.season), values: seasonsChrono.map((r) => r.mult), years: seasonsChrono.map((r) => +r.season.slice(0, 4)),
+    min: 1, max: 10, step: 0.5, def: 2, fmt: (v) => "×" + fmt.n(v, 1), unit: "× normal Dec–Mar rainfall", peril: "flood", noun: "seasons",
+    desc: "Season rainfall over the lots as a multiple of the Dec–Mar normal, 44 seasons 1981-82 → 2024-25. The flood index: only extraordinary events cross ×3." };
+  if (STATE.trig === "hot") return { id: "hot", labels: CL.years, values: CL.hottest, years: CL.years, min: 30.5, max: 34, step: 0.1, def: 32.5,
+    fmt: (v) => fmt.n(v, 1) + " °C", unit: "hottest day of the year", peril: "heat", noun: "years", desc: "Hottest day recorded over the lots each year, 1981–2025 (ERA5-Land)." };
+  return { id: "stress", labels: CL.years, values: stressDays(), years: CL.years, min: 1, max: 30, step: 1, def: { 32: 8, 33: 3, 34: 1 }[line], fmt: (v) => fmt.n(v),
+    unit: `days ≥ ${line} °C in a year`, peril: "heat", noun: "years", desc: `Days per year whose maximum reached ${line} °C, the ${STATE.crop === "all" ? "blueberry (lowest)" : C[STATE.crop].name.toLowerCase()} stress line, 1981–2025. Pick a crop to move the line.` };
+}
+function renderUnderwriting() {
+  $("#uwChain").innerHTML = UW.chain.map((c, i) => `<div class="card ${i === UW.chain.length - 1 ? "end" : ""}"><span class="n">${c.n}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p>${i === UW.chain.length - 1 ? `<div class="stack">${UW.structures.map(([t, on]) => `<span class="tag ${on ? "ok" : "na"} plain" style="white-space:normal">${esc(t)}</span>`).join("")}</div>` : ""}</div>`).join("");
+  renderTrigger();
+  $("#uwWays").innerHTML = UW.ways.map(([h, t]) => `<div class="small"><b>${esc(h)}.</b> <span style="color:var(--fg-2)">${esc(t)}</span></div>`).join("");
+  $("#uwRely").textContent = UW.rely + " " + UW.bring + " " + UW.running;
+  const minCold = Math.min(...CROP_KEYS.map((k) => C[k].coldest - C[k].frost));
+  const hx = DD.sum(CROP_KEYS, (k) => YB.exposure.heat.extraordinary[k]), fx = DD.sum(CROP_KEYS, (k) => YB.exposure.flood.extraordinary[k]);
+  const ATTR = [["Heat waves", "bad", `The live exposure: every crop past its line in the El Niño Sep–Dec phase, ${fmt.n(hx)} ha of lots`],
+    ["Waterlogging & excess moisture", "bad", `The extraordinary-tier exposure along the Río Zaña, ${fmt.n(fx)} ha of lots`],
+    ["Frost", "ok", `Excluded: twenty years of nights never came within ${fmt.n(minCold, 0)} °C of a frost line`],
+    ["Drought", "warn", "A water-security question for the site visit, not a climate one"],
+    ["Hail · continuous cloudiness", "na", "Not material on this coast"]];
+  $("#uwAttr").innerHTML = ATTR.map(([p, t, x]) => `<div class="rule" style="grid-template-columns:190px 1fr auto"><b>${p}</b><span class="st ${t}" style="font-weight:500">${esc(x)}</span><span class="tag ${t}">${{ bad: "watch", ok: "excluded", warn: "visit", na: "n/a" }[t]}</span></div>`).join("");
+  $("#uwData").innerHTML = UW.datasets.map((d) => `<div class="rule" style="grid-template-columns:1fr auto"><span><b>${esc(d.name)}</b><div class="small muted">${esc(d.does)}</div></span><span class="tag na plain">${esc(d.owner)}</span></div>`).join("");
+  $("#uwFraming").innerHTML = `<span class="lbl">ONE FRAMING WE WILL DEFEND</span><div><b>${esc(UW.framing)}</b> The alert probability is ${ODDS} %, not a tail.</div>`;
+}
+function renderTrigger() {
+  const ix = trigIndex(), key = ix.id + (ix.id === "stress" ? stressLine() : "");
+  const thr = STATE.thr[key] ?? ix.def, input = $("#trigThr");
+  input.min = ix.min; input.max = ix.max; input.step = ix.step; input.value = thr;
+  const fired = ix.values.map((v, i) => (v >= thr ? i : -1)).filter((i) => i > -1), n = ix.values.length;
+  const recent = fired.filter((i) => ix.years[i] >= 2006).length, lastI = fired[fired.length - 1];
+  $("#trigLbl").textContent = `≥ ${ix.fmt(thr)} ${ix.id === "stress" ? "stress days" : ix.id === "rain" ? "normal rainfall" : ""}`.trim();
+  $("#trigOut").textContent = fired.length ? `fires ${fired.length} of ${n} ${ix.noun}` : "never fires";
+  $("#trigTitle").textContent = fired.length ? `Trigger backtest: fires ${fired.length} times in ${n} ${ix.noun}, ${recent} of them since 2006.` : "Trigger backtest: this threshold never fired in the record.";
+  $("#trigDesc").textContent = ix.desc + " Drag the threshold.";
+  DD.chart.bars("#ch-trigger", { labels: ix.labels, series: [{ name: ix.unit.replace(/^./, (c) => c.toUpperCase()), values: ix.values }], tones: ix.values.map((v) => (v >= thr ? "bad" : "dim")),
+    height: 230, yFmt: ix.fmt, xFmt: (l) => (typeof l === "string" ? l.slice(0, 4) : l), refs: [{ y: thr, label: `trigger · ≥ ${ix.fmt(thr)}`, tone: "bad", strong: true }],
+    bands: ix.id === "rain" ? [] : bandsFor(CL.years), title: "Trigger backtest" });
+  const rp = fired.length ? n / fired.length : null;
+  $("#trigKpis").innerHTML = `
+    <div class="kpi ${fired.length ? "bad" : "ok"}"><span class="kpi-label">Fires</span><b class="kpi-value">${fired.length} <span class="muted" style="font-size:15px;font-weight:500">of ${n}</span></b><span class="kpi-meta">${ix.noun} in the record</span></div>
+    <div class="kpi"><span class="kpi-label">Return period</span><b class="kpi-value">${rp ? "1 in " + fmt.n(rp, rp < 10 ? 1 : 0) : "—"}</b><span class="kpi-meta">what a reserve sized to this trigger must cover</span></div>
+    <div class="kpi ${recent > fired.length / 2 ? "warn" : ""}"><span class="kpi-label">Since 2006</span><b class="kpi-value">${fired.length ? fmt.pct(recent / fired.length) : "—"}</b><span class="kpi-meta">of firings in the last 20 ${ix.noun} · the baseline moved</span></div>
+    <div class="kpi"><span class="kpi-label">Last fired</span><b class="kpi-value">${lastI != null ? esc(String(ix.labels[lastI])) : "—"}</b><span class="kpi-meta">${lastI != null ? ix.fmt(ix.values[lastI]) : "no firing in the record"}</span></div>`;
+  // illustrative DSCR, timed by the backtest
+  const r = DD.rng("dscr-" + key), base = ix.values.map(() => +(1.45 + r.normal(0, 0.05)).toFixed(2)), freq = fired.length / n;
+  const unstructured = base.map((b, i) => (fired.includes(i) ? +(b - 0.55 - r.float(0, 0.12)).toFixed(2) : b));
+  const structured = base.map((b, i) => (fired.includes(i) ? 1.26 : +(b - 0.3 * freq).toFixed(2)));
+  DD.chart.line("#ch-dscr", { labels: ix.labels, xFmt: (l) => (typeof l === "string" ? l.slice(0, 4) : l), curve: "linear", zero: false, yMin: 0.7, yMax: 1.7, area: false, height: 240, yFmt: (v) => fmt.n(v, 2) + "×", title: "Debt-service coverage, illustrative",
+    series: [{ name: "Climate-indexed structure", color: "ink", values: structured }, { name: "Unstructured", color: "bad", dash: true, values: unstructured, noEnd: true }],
+    refs: [{ y: 1.2, label: "covenant 1.20×", tone: "warn", strong: true }], bands: fired.map((i) => ({ from: i, to: i, label: "trigger fires" })) });
+}
+$("#trigThr").addEventListener("input", (e) => { const ix = trigIndex(); STATE.thr[ix.id + (ix.id === "stress" ? stressLine() : "")] = +e.target.value; renderTrigger(); });
+DD.select("#trigIndex", (v) => { STATE.trig = v; renderTrigger(); });
+
+// ---------------------------------------------------------------- next steps
+const NX = YB.next, OWNERS = ["operator", "seller", "responsAbility"];
+const SCREEN_NAME = { suit: "Suitability", heat: "Heat & frost", exposure: "Exposure", underwriting: "Underwriting" };
+function renderNext() {
+  const ck = STATE.crop === "all" ? null : STATE.crop;
+  const delivered = NX.columns.filter((c) => c.status === "delivered").flatMap((c) => c.items), proposed = NX.columns.filter((c) => c.status !== "delivered").flatMap((c) => c.items);
+  $("#nextLede").textContent = `${["Zero", "One", "Two", "Three", "Four", "Five"][delivered.length] || delivered.length} deliverables are in this preview. The full due diligence re-runs them on site data and adds the rest of the chain.`;
+  const byOwner = DD.countBy(NX.requests, (r) => r.owner);
+  $("#nextKpis").innerHTML = `
+    <div class="kpi ok"><span class="kpi-label"><span class="dot ok"></span>Delivered in this preview</span><b class="kpi-value">${delivered.length}</b><span class="kpi-meta">suitability · microclimates · risk per crop</span></div>
+    <div class="kpi"><span class="kpi-label">Proposed next</span><b class="kpi-value">${proposed.length}</b><span class="kpi-meta">full DD · structuring · monitoring</span></div>
+    <div class="kpi warn"><span class="kpi-label"><span class="dot warn"></span>Data requests open</span><b class="kpi-value">${NX.requests.length}</b><span class="kpi-meta">${OWNERS.map((o) => `${byOwner[o] || 0} ${o}`).join(" · ")}</span></div>
+    <div class="kpi"><span class="kpi-label">Site-visit stops</span><b class="kpi-value">${YB.fundos.filter((f) => !ck || f.crop === ck).length}</b><span class="kpi-meta">fundos, coast to up-valley${ck ? " · " + C[ck].name.toLowerCase() : ""}</span></div>`;
+  $("#board").innerHTML = NX.columns.map((c) => `<div class="card col"><span class="tag ${c.status === "delivered" ? "ok" : "na"}" style="align-self:flex-start">${c.status === "delivered" ? "delivered" : "proposed"}</span><h3>${esc(c.title)}</h3><span class="note">${esc(c.note)}</span>
+    ${c.items.map(([t, d, link]) => `<div class="item"><span class="box ${c.status === "delivered" ? "done" : ""}">${c.status === "delivered" ? "✓" : ""}</span><div><b>${esc(t)}</b><span>${esc(d)}</span>${link ? `<br><a href="#${link}">${c.status === "delivered" ? "Open" : "Preview"}: ${SCREEN_NAME[link]} →</a>` : ""}</div></div>`).join("")}</div>`).join("");
+
+  // itinerary: fundos coast → up-valley, checks derived from the data
+  const stops = YB.fundos.filter((f) => !ck || f.crop === ck).sort((a, b) => FUNDO_XY[a.key][0] - FUNDO_XY[b.key][0]);
+  const CROP_CHECK = { avocado: "Soil pits: pH, the amendment programme and its cost; rootstocks", mandarin: "Soil sample for the ESP / EC lab check; rootstocks", blueberry: "Substrate, fertigation water pH / EC, pot drainage, pumping and access roads" };
+  $("#itinDesc").textContent = `${stops.length} stops ordered along the Río Zaña. Checks come from the data: flood share in the extraordinary band, heat share past the crop line, and the crop's open questions.`;
+  $("#itinerary").innerHTML = stops.map((f, i) => {
+    const fx = f.flood.extraordinary, hx = f.heat_share.extraordinary, tone = fx >= 80 ? "bad" : hx >= 80 ? "warn" : "ink";
+    const checks = [];
+    if (fx >= 50) checks.push(`Walk the drainage and the channel margin: ${fmt.n(fx)} % of the area in the extraordinary band, median ${fmt.n(f.flood.hanc_p50_m, 1)} m above the channel`);
+    if (hx >= 50) checks.push(`Shade, cooling and harvest timing: ${fmt.n(hx)} % past the ${C[f.crop].stress} °C line in an extraordinary event`);
+    checks.push(CROP_CHECK[f.crop]);
+    if (f.note) checks.push(f.note);
+    return `<li class="${tone}"><b>${i + 1} · ${esc(f.name)} <span class="muted small" style="font-weight:400">${C[f.crop].name} · ${fmt.n(f.productive_ha)} ha</span></b><div><ul class="checks">${checks.map((c) => `<li>${esc(c)}</li>`).join("")}</ul><button type="button" class="btn ghost sm" data-f="${f.key}" style="margin-top:4px">Open on map →</button></div></li>`;
+  }).join("");
+  $$("#itinerary [data-f]").forEach((b) => b.addEventListener("click", () => { location.hash = `#map/layer=flood&fundo=${b.dataset.f}`; }));
+
+  $("#reqOwner").innerHTML = [["all", "All", NX.requests.length], ...OWNERS.map((o) => [o, o, byOwner[o] || 0])].map(([k, l, n]) => `<button type="button" data-value="${k}" class="${STATE.owner === k ? "on" : ""}">${l} · ${n}</button>`).join("");
+  reqTable.update(NX.requests.filter((r) => STATE.owner === "all" || r.owner === STATE.owner));
+  $("#closing").innerHTML = `<b>${esc(NX.closing)}</b>`;
+}
+const reqTable = DD.table("#reqTable", {
+  rows: [], rowKey: "item",
+  cols: [
+    { key: "item", label: "Request", sort: true, render: (r) => `<b>${esc(r.item)}</b><div class="small muted">${esc(r.why)}</div>` },
+    { key: "owner", label: "Owner", sort: true, render: (r) => `<span class="tag na plain">${esc(r.owner)}</span>` },
+    { key: "moves", label: "Moves", render: (r) => `<a class="small" href="#${r.moves}" style="font-weight:600">${SCREEN_NAME[r.moves]} →</a>` },
+    { key: "status", label: "Status", render: () => '<span class="tag warn">requested</span>' },
+  ],
+});
+DD.select("#reqOwner", (v) => { STATE.owner = v; renderNext(); });
+
+// ---------------------------------------------------------------- export brief (print → PDF)
+function exportBrief() {
+  const BRIEF = ["overview", "suit", "heat", "elnino", "exposure", "underwriting", "next"], prev = STATE.route;
+  $("#printHead").textContent = `Yarabamba · DD preview brief · crop: ${STATE.crop === "all" ? "all" : C[STATE.crop].name} · scenario: ${TIER_NAME(STATE.tier)} · as of ${YB.asOfLabel} · prepared for ${YB.preparedFor} · confidential`;
+  document.body.classList.add("printing"); DD.drawer.close();
+  $$(".screen").forEach((sc) => (sc.hidden = !BRIEF.includes(sc.id.slice(2))));
+  BRIEF.forEach((r) => { STATE.route = r; renderCurrent(); });
+  STATE.route = prev;
+  const restore = () => { document.body.classList.remove("printing"); $$(".screen").forEach((sc) => (sc.hidden = sc.id !== "s-" + prev)); renderCurrent(); if (prev === "map" && map) map.resize(); };
+  window.addEventListener("afterprint", restore, { once: true });
+  setTimeout(() => window.print(), 450);
+}
+$("#exportBrief").addEventListener("click", exportBrief);
+
+// ---------------------------------------------------------------- sources & limits
+function openSources() {
+  DD.drawer.open({
+    head: `<h2>Sources &amp; limits</h2><div class="small muted" style="margin-top:4px">What we ran, and what it can't tell you</div>`,
+    body: `
+      <div class="callout warn"><span class="lbl">◆ MEANS: NEEDS ON-SITE VALIDATION</span><div>Every soil figure and loss band is marked. The baseline is the satellite's; the managed state is the visit's.</div></div>
+      <div><span class="lbl">WHAT WE RAN</span><ul class="statements">
+        <li><b>Crop suitability at parcel scale:</b> response curves combined by Liebig minimum over climate (ERA5-Land, CHIRPS v3, 2006–2025) and soil (SoilGrids, WISE); irrigated; 2040 re-score on the observed trend.</li>
+        <li><b>Thermal extremes by lot:</b> relief downscaling to 30 m; p98 / p99 / p99.5 of maxima, p2 / p1 of minima. El Niño heat = p99 + the tier's Sep–Dec anomaly (+0.9 / +1.1 / +1.8 °C).</li>
+        <li><b>Flood exposure:</b> height above the nearest Río Zaña channel (30 m); stages &lt; 1.5 / 3 / 5 m per tier, anchored to the 1998 and 2017 footprints.</li>
+        <li><b>El Niño scenarios:</b> local analog composites weighted by ENFEN 15-2026 probabilities.</li></ul></div>
+      <div><span class="lbl">LIMITS WORTH HAVING IN FRONT OF YOU</span><ul class="statements">
+        <li>Soils are read from 250 m global databases (alkaline, pH ~7.6–7.8): the pre-management baseline. The managed state, and what it costs, come from pits and lab chemistry.</li>
+        <li>Flood stages are first-order screening, not hydraulic modelling. Bands mark exposed ground, not water depth; drainage and levees are not in the model.</li>
+        <li>The 2040 view is trend extrapolation, not a climate model.</li>
+        <li>Heat hectares here are counted from the 30 m rasters and the lot polygons; they can differ from the report's tables by 1–2 ha.</li></ul></div>
+      <div><span class="lbl">WHAT WE CANNOT SEE · WITH YOUR TEAM</span><ul class="statements">
+        <li><b>Soil chemistry:</b> pits, lab results and the nutrition programme. The binding constraint on two of three crops.</li>
+        <li><b>Water rights and source:</b> licences, allocation, wells and reservoir. An 84 mm valley is a water asset before it is a land asset.</li>
+        <li><b>Yield history by lot:</b> 2017 and 2023 in particular, to turn indicative loss bands into observed outcomes.</li>
+        <li><b>Varieties and rootstocks:</b> every tolerance threshold is a literature range until they are named.</li></ul></div>
+      <div><span class="lbl">SOURCES</span><div class="kv" style="margin-top:8px;grid-template-columns:110px 1fr">${Object.entries(YB.sources).map(([k, v]) => `<span class="k" style="text-transform:capitalize">${esc(k)}</span><span class="small" style="font-weight:400">${esc(v)}</span>`).join("")}</div></div>
+      <div class="small muted">Numbers regenerate from the analysis outputs with <span class="mono">build_data.py</span>.</div>`,
+  });
+}
+$("#openSources").addEventListener("click", openSources);
+document.addEventListener("click", (e) => { if (e.target.closest("[data-open-sources]")) openSources(); });
+
+// ---------------------------------------------------------------- routing
+function renderCurrent() {
+  cropApi.set(STATE.crop, true); tierApi.set(STATE.tier, true);
+  if (STATE.route === "overview") renderOverview();
+  if (STATE.route === "map") renderMap();
+  if (STATE.route === "elnino") renderNino();
+  if (STATE.route === "suit") renderSuit();
+  if (STATE.route === "heat") renderHeat();
+  if (STATE.route === "exposure") renderExposure();
+  if (STATE.route === "underwriting") renderUnderwriting();
+  if (STATE.route === "next") renderNext();
+}
+DD.router({
+  routes: ["overview", "map", "suit", "heat", "elnino", "exposure", "underwriting", "next"],
+  onChange({ id, param, changed }) {
+    const prevFundo = STATE.fundo;
+    STATE.route = id; applyParams(param);
+    if (id === "map") { initMap(); if (map) requestAnimationFrame(() => map.resize()); }
+    renderCurrent();
+    if (id === "map" && STATE.fundo && (param || "").includes("fundo=") && (changed || STATE.fundo !== prevFundo || !$(".drawer.open"))) {
+      const f = fundoByKey[STATE.fundo];
+      openFundo(f);
+      const fly = () => { const [x, y] = FUNDO_XY[f.key]; map.flyTo({ center: [x, y], zoom: 13.2, duration: 1100 }); };
+      if (map) map.loaded() ? fly() : map.once("load", fly);
+    }
+    if (changed) DD.countUp($("#s-" + id));
+    syncHash();
+  },
+});
+</script>
+</body>
+</html>
